@@ -28,6 +28,35 @@ module Right
     config
   end
 
+  # If `body` is a 422 validation response with errors on entity_type,
+  # formation_state, or status, returns a multi-line hint listing the
+  # validation messages and the current catalog values. Returns nil
+  # otherwise (so the caller can fall back to its default error output).
+  ENUM_FIELDS = {"entity_type", "formation_state", "status"}
+
+  def self.enum_error_hint(body : String) : String?
+    parsed = JSON.parse(body) rescue nil
+    return nil unless parsed
+    errors = parsed["errors"]?.try(&.as_h?)
+    return nil unless errors
+    return nil unless errors.keys.any? { |k| ENUM_FIELDS.includes?(k.to_s) }
+
+    sdk_config
+    catalog = RightDocuments::CatalogApi.new.api_v1_catalog_get rescue nil
+
+    String.build do |io|
+      io << "\nTip: at least one of --type/--state/--status was rejected by the server.\n"
+      if catalog
+        io << "Valid values (also via `rightdocuments catalog`):\n"
+        io << "  --type:   #{(catalog.entity_types || [] of String).join(", ")}\n"
+        io << "  --state:  #{(catalog.formation_states || [] of String).join(", ")}\n"
+        io << "  --status: #{(catalog.entity_statuses || [] of String).join(", ")}"
+      else
+        io << "Run `rightdocuments catalog` to see valid values."
+      end
+    end
+  end
+
   # Mixin for data-returning commands. Adds `--json/-j` and exposes `json?(input)`.
   module JSONOption
     macro included
@@ -162,6 +191,39 @@ module Right
           output.puts "type: #{e.entity_type}"
           output.puts "state: #{e.state}"
           output.puts "status: #{e.status}"
+          show = ->(label : String, value : String?) {
+            output.puts "#{label}: #{value}" if value && !value.empty?
+          }
+          show.call("formation_date", e.formation_date)
+          show.call("ein", e.ein)
+          show.call("duns", e.duns)
+          show.call("file_number", e.file_number)
+          show.call("fiscal_year_end", e.fiscal_year_end_month_day)
+          if shares = e.shares_authorized
+            output.puts "shares_authorized: #{shares}"
+          end
+          show.call("address", e.address)
+          show.call("county", e.county)
+          show.call("phone", e.phone)
+          show.call("website", e.website_url)
+          show.call("registered_agent_name", e.registered_agent_name)
+          show.call("registered_agent_address", e.registered_agent_address)
+          show.call("incorporator_name", e.incorporator_name)
+          show.call("incorporator_address", e.incorporator_address)
+          show.call("incorporator_resigned_on", e.incorporator_resigned_on)
+          {1, 2, 3}.each do |i|
+            name  = case i; when 1; e.officer_1_name; when 2; e.officer_2_name; else e.officer_3_name; end
+            title = case i; when 1; e.officer_1_title; when 2; e.officer_2_title; else e.officer_3_title; end
+            email = case i; when 1; e.officer_1_email; when 2; e.officer_2_email; else e.officer_3_email; end
+            next unless (name && !name.empty?) || (title && !title.empty?) || (email && !email.empty?)
+            parts = [] of String
+            parts << name.to_s if name && !name.empty?
+            parts << "(#{title})" if title && !title.empty?
+            parts << "<#{email}>" if email && !email.empty?
+            output.puts "officer_#{i}: #{parts.join(" ")}"
+          end
+          show.call("created_at", e.created_at)
+          show.call("updated_at", e.updated_at)
         else
           output.puts result.to_pretty_json
         end
@@ -245,6 +307,9 @@ module Right
       response = HTTP::Client.post(uri, headers: headers, body: body)
       unless response.status.success?
         output.puts "entities:create failed: HTTP #{response.status.code} — #{response.body}"
+        if hint = Right.enum_error_hint(response.body)
+          output.puts hint
+        end
         return ACON::Command::Status::FAILURE
       end
 
