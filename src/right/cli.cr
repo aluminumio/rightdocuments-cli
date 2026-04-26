@@ -270,6 +270,7 @@ module Right
         .option("name", nil, ACON::Input::Option::Value[:required], "Legal name of the entity")
         .option("type", nil, ACON::Input::Option::Value[:required], "Entity type (e.g. LLC, Corp)")
         .option("state", nil, ACON::Input::Option::Value[:required], "Formation state (e.g. DE, CA)")
+        .option("formation-date", nil, ACON::Input::Option::Value[:required], "Formation date (YYYY-MM-DD)")
         .option("ein", nil, ACON::Input::Option::Value[:required], "Employer Identification Number")
         .option("address", nil, ACON::Input::Option::Value[:required], "Mailing address")
         .option("phone", nil, ACON::Input::Option::Value[:required], "Phone number")
@@ -285,6 +286,16 @@ module Right
         return ACON::Command::Status::FAILURE
       end
 
+      formation_date = nil
+      if raw = input.option("formation-date").to_s.presence
+        begin
+          formation_date = Time.parse_utc(raw, "%Y-%m-%d")
+        rescue Time::Format::Error
+          output.puts "error: --formation-date must be YYYY-MM-DD (got #{raw.inspect})"
+          return ACON::Command::Status::FAILURE
+        end
+      end
+
       # Swagger doesn't describe the 201 response, so the SDK returns nil.
       # Build the body via the typed request model, post with HTTP::Client.
       entity = RightDocuments::ApiV1EntitiesPostRequestEntity.new(
@@ -292,7 +303,7 @@ module Right
         entity_type: type,
         formation_state: state,
         status: nil,
-        formation_date: nil,
+        formation_date: formation_date,
         ein: input.option("ein").to_s.presence,
         address: input.option("address").to_s.presence,
         phone: input.option("phone").to_s.presence,
