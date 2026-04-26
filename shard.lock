@@ -26,7 +26,7 @@ shards:
 
   oauth-device-flow:
     git: https://github.com/aluminumio/oauth-device-flow.cr.git
-    version: 0.1.0
+    version: 0.1.1
 
   rightdocuments-client:
     git: https://github.com/aluminumio/rightdocuments-sdk-crystal-lang.git
