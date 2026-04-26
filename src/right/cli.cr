@@ -80,6 +80,7 @@ module Right
       app.add EntitiesCreateCommand.new
       app.add EntitiesInfoCommand.new
       app.add DocumentsCommand.new
+      app.add DocumentsDeleteCommand.new
       app.add ImportCommand.new
       app.add CatalogCommand.new
       app.add SkillsCommand.new
@@ -374,6 +375,34 @@ module Right
       ACON::Command::Status::SUCCESS
     rescue ex
       output.puts "documents failed: #{ex.message}"
+      ACON::Command::Status::FAILURE
+    end
+  end
+
+  @[ACONA::AsCommand("documents:delete", description: "Delete a document by ID")]
+  class DocumentsDeleteCommand < ACON::Command
+    protected def configure : Nil
+      self.argument("id", :required, "document ID to delete")
+    end
+
+    protected def execute(input : ACON::Input::Interface, output : ACON::Output::Interface) : ACON::Command::Status
+      id = input.argument("id").to_s
+      if id.empty?
+        output.puts "error: document ID is required"
+        return ACON::Command::Status::FAILURE
+      end
+
+      Right.sdk_config
+      _, status, _ = RightDocuments::DocumentsApi.new.api_v1_documents_id_delete_with_http_info(id)
+      if status == 204
+        output.puts "deleted #{id}"
+        ACON::Command::Status::SUCCESS
+      else
+        output.puts "documents:delete failed: HTTP #{status}"
+        ACON::Command::Status::FAILURE
+      end
+    rescue ex
+      output.puts "documents:delete failed: #{ex.message}"
       ACON::Command::Status::FAILURE
     end
   end
