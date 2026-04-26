@@ -65,6 +65,7 @@ module Right
   @[ACONA::AsCommand("whoami", description: "Show the authenticated user and organization")]
   class WhoamiCommand < ACON::Command
     protected def execute(input : ACON::Input::Interface, output : ACON::Output::Interface) : ACON::Command::Status
+      Right.sdk_config
       result = RightDocuments::MeApi.new.api_v1_me_get
       user = result.user
       org  = result.organization
@@ -80,6 +81,7 @@ module Right
   @[ACONA::AsCommand("entities", description: "List entities you have access to")]
   class EntitiesCommand < ACON::Command
     protected def execute(input : ACON::Input::Interface, output : ACON::Output::Interface) : ACON::Command::Status
+      Right.sdk_config
       api = RightDocuments::EntitiesApi.new
       result = api.api_v1_entities_get
       (result.entities || [] of typeof(result.entities.not_nil!.first)).each do |entity|
@@ -99,6 +101,7 @@ module Right
     end
 
     protected def execute(input : ACON::Input::Interface, output : ACON::Output::Interface) : ACON::Command::Status
+      Right.sdk_config
       entity_id = input.argument("entity_id").to_s
       api = RightDocuments::DocumentsApi.new
       result = api.api_v1_entities_entity_id_documents_get(entity_id)
