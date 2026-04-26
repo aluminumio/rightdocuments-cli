@@ -1,12 +1,12 @@
-name: right
-version: 0.3.5
+name: rightdocuments
+version: 0.3.6
 
 authors:
   - usiegj00 <248302+usiegj00@users.noreply.github.com>
 
 targets:
   rightdocuments:
-    main: src/right.cr
+    main: src/rightdocuments.cr
 
 crystal: ">= 1.10"
 

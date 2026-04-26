@@ -14,7 +14,7 @@ jobs:
       - name: Install dependencies
         run: shards install
       - name: Type-check
-        run: crystal build src/right.cr -o bin/rightdocuments --no-codegen --error-on-warnings
+        run: crystal build src/rightdocuments.cr -o bin/rightdocuments --no-codegen --error-on-warnings
       - name: Run specs
         run: crystal spec --error-on-warnings
         if: hashFiles('spec/**/*_spec.cr') != ''
