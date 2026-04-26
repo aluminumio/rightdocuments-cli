@@ -67,6 +67,7 @@ jobs:
           gh release upload "${GITHUB_REF_NAME}" dist/* --clobber
 
       - name: Bump homebrew tap
+        if: env.GH_TOKEN != ''
         env:
           GH_TOKEN: ${{ secrets.RELEASE_PAT }}
         run: |
