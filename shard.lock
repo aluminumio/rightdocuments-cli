@@ -30,5 +30,5 @@ shards:
 
   rightdocuments-client:
     git: https://github.com/aluminumio/rightdocuments-sdk-crystal-lang.git
-    version: 0.1.6
+    version: 0.1.7
 
