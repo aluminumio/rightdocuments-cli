@@ -12,8 +12,6 @@ jobs:
         include:
           - os: macos-14         # Apple Silicon
             target: darwin-arm64
-          - os: macos-13         # Intel
-            target: darwin-x86_64
           - os: ubuntu-latest    # uses container
             target: linux-x86_64
             container: crystallang/crystal:1.13
@@ -72,5 +70,5 @@ jobs:
           GH_TOKEN: ${{ secrets.RELEASE_PAT }}
         run: |
           gh api repos/aluminumio/homebrew-tap/dispatches \
-            -f event_type=cli-released \
-            -F "client_payload[version]=${GITHUB_REF_NAME}"
+            -f event_type=rightdocuments-cli-released \
+            -F "client_payload[version]=${GITHUB_REF_NAME#v}"
