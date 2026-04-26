@@ -29,7 +29,7 @@ jobs:
           if compgen -G "spec/**/*_spec.cr" > /dev/null; then
             crystal spec --error-on-warnings
           fi
-      - name: Open auto-merge PR if shard.lock changed
+      - name: Open and merge SDK bump PR
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -46,4 +46,7 @@ jobs:
           gh pr create --title "Bump rightdocuments-client to ${SDK_VER}" \
                        --body "Auto-bump triggered by aluminumio/rightdocuments-sdk-crystal-lang release ${SDK_VER}." \
                        --head "$BRANCH" --base main
-          gh pr merge "$BRANCH" --auto --squash --delete-branch
+          # Direct merge: main has no required checks and the workflow has
+          # already type-checked + tested. --auto would error with
+          # "Pull request is in clean status (enablePullRequestAutoMerge)".
+          gh pr merge "$BRANCH" --squash --delete-branch
