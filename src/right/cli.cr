@@ -49,8 +49,10 @@ module Right
       app.add LogoutCommand.new
       app.add EntitiesCommand.new
       app.add EntitiesCreateCommand.new
+      app.add EntitiesInfoCommand.new
       app.add DocumentsCommand.new
       app.add ImportCommand.new
+      app.add CatalogCommand.new
       app.add SkillsCommand.new
       app.run(ACON::Input::ARGV.new(argv))
     end
@@ -134,6 +136,64 @@ module Right
       ACON::Command::Status::SUCCESS
     rescue ex
       output.puts "entities failed: #{ex.message}"
+      ACON::Command::Status::FAILURE
+    end
+  end
+
+  @[ACONA::AsCommand("entities:info", description: "Show a single entity by ID")]
+  class EntitiesInfoCommand < ACON::Command
+    include JSONOption
+
+    protected def configure : Nil
+      EntitiesInfoCommand.add_json_option(self)
+      self.argument("entity_id", :required, "entity ID to look up")
+    end
+
+    protected def execute(input : ACON::Input::Interface, output : ACON::Output::Interface) : ACON::Command::Status
+      Right.sdk_config
+      result = RightDocuments::EntitiesApi.new.api_v1_entities_id_get(input.argument("entity_id").to_s)
+      if json?(input)
+        output.puts result.to_pretty_json
+      else
+        e = result.entity
+        if e
+          output.puts "id: #{e.id}"
+          output.puts "name: #{e.name}"
+          output.puts "type: #{e.entity_type}"
+          output.puts "state: #{e.state}"
+          output.puts "status: #{e.status}"
+        else
+          output.puts result.to_pretty_json
+        end
+      end
+      ACON::Command::Status::SUCCESS
+    rescue ex
+      output.puts "entities:info failed: #{ex.message}"
+      ACON::Command::Status::FAILURE
+    end
+  end
+
+  @[ACONA::AsCommand("catalog", description: "List server-defined entity types, formation states, and statuses")]
+  class CatalogCommand < ACON::Command
+    include JSONOption
+
+    protected def configure : Nil
+      CatalogCommand.add_json_option(self)
+    end
+
+    protected def execute(input : ACON::Input::Interface, output : ACON::Output::Interface) : ACON::Command::Status
+      Right.sdk_config
+      result = RightDocuments::CatalogApi.new.api_v1_catalog_get
+      if json?(input)
+        output.puts result.to_pretty_json
+      else
+        output.puts "entity_types:     #{(result.entity_types || [] of String).join(", ")}"
+        output.puts "formation_states: #{(result.formation_states || [] of String).join(", ")}"
+        output.puts "entity_statuses:  #{(result.entity_statuses || [] of String).join(", ")}"
+      end
+      ACON::Command::Status::SUCCESS
+    rescue ex
+      output.puts "catalog failed: #{ex.message}"
       ACON::Command::Status::FAILURE
     end
   end

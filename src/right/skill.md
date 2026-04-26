@@ -10,7 +10,7 @@ rightdocuments whoami -j    # confirms current user + organization
 rightdocuments logout       # clears stored token (~/.netrc)
 ```
 
-The token is persisted in `~/.netrc` under the `app.rightdocuments.com` machine. Override the host with `RIGHTDOCUMENTS_URL` (e.g. `http://localhost:3000` for dev).
+The token is persisted in `~/.netrc` under the `app.rightdocuments.com` machine.
 
 ## End-to-end workflow: create an entity, populate it with documents
 
@@ -34,8 +34,7 @@ rightdocuments entities:create \
 
 Required: `--name`, `--type`, `--state`. Optional: `--ein`, `--address`, `--phone`.
 
-Valid `--type` values: `c-corp`, `s-corp`, `llc`, `partnership`.
-Valid `--state` values: `CA`, `DE`.
+Run `rightdocuments catalog -j` to enumerate the valid `--type` and `--state` values (and any other server-defined choices). Always fetch this first rather than assuming hardcoded lists — the server is the source of truth.
 
 The JSON response includes the new entity's `id` — capture it for subsequent calls:
 
@@ -70,9 +69,11 @@ Lists every document on the entity. Without `-j` you get a tab-separated `id<TAB
 | `logout` | Clear token | — |
 | `whoami` | Show current user/org | `-j` |
 | `entities` | List entities you can access | `-j` |
+| `entities:info <entity_id>` | Show one entity by ID | `-j` |
 | `entities:create` | Create an entity | `--name`, `--type`, `--state`, `--ein`, `--address`, `--phone`, `-j` |
 | `documents <entity_id>` | List documents on an entity | `-j` |
 | `import <path> --entity <id>` | Upload a PDF as an executed document | `-j` |
+| `catalog` | Enumerate server-defined choices (entity types, states, statuses) | `-j` |
 | `skills` | Print this guide (for agents/LLMs) | — |
 
 ## Tips for agentic use
@@ -81,4 +82,3 @@ Lists every document on the entity. Without `-j` you get a tab-separated `id<TAB
 - **Capture IDs immediately** with `jq -r`. The entity/document `id` fields are UUIDs you'll need for subsequent calls.
 - **Errors are non-zero exit code + a single line** like `entities:create failed: HTTP 422 — {"error":...}`. Parse the JSON body after the em-dash for actionable detail.
 - **Re-authenticate when 401**: a stale or rotated token surfaces as `HTTP 401`. Run `rightdocuments login` and retry.
-- **Override the API host** via `RIGHTDOCUMENTS_URL` for dev/staging. The token stored in `~/.netrc` is keyed by host, so you can keep dev and prod tokens side-by-side.
