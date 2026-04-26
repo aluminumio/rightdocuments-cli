@@ -1,4 +1,4 @@
-name: right
+name: rightdocuments
 version: 0.3.6
 
 authors:
@@ -6,7 +6,7 @@ authors:
 
 targets:
   rightdocuments:
-    main: src/right.cr
+    main: src/rightdocuments.cr
 
 crystal: ">= 1.10"
 

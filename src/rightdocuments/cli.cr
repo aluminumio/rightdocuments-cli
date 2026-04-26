@@ -3,7 +3,7 @@ require "oauth-device-flow"
 require "rightdocuments-client"
 require "./version"
 
-module Right
+module RightDocuments
   CLIENT_ID = ENV["RIGHTDOCUMENTS_CLIENT_ID"]? || "d4803e11ec443f87854a6caec69ab50b"
   BASE_URL  = ENV["RIGHTDOCUMENTS_URL"]? || "https://app.rightdocuments.com"
 
@@ -72,7 +72,7 @@ module Right
 
   module CLI
     def self.run(argv : Array(String)) : Nil
-      app = ACON::Application.new("rightdocuments", VERSION)
+      app = ACON::Application.new("rightdocuments", CLI_VERSION)
       app.add WhoamiCommand.new
       app.add LoginCommand.new
       app.add LogoutCommand.new
@@ -101,7 +101,7 @@ module Right
   @[ACONA::AsCommand("login", description: "Authenticate via OAuth device flow")]
   class LoginCommand < ACON::Command
     protected def execute(input : ACON::Input::Interface, output : ACON::Output::Interface) : ACON::Command::Status
-      Right.oauth.authenticate(scope: "documents:read documents:write")
+      RightDocuments.oauth.authenticate(scope: "documents:read documents:write")
       output.puts "Logged in."
       ACON::Command::Status::SUCCESS
     rescue ex
@@ -113,7 +113,7 @@ module Right
   @[ACONA::AsCommand("logout", description: "Clear stored credentials")]
   class LogoutCommand < ACON::Command
     protected def execute(input : ACON::Input::Interface, output : ACON::Output::Interface) : ACON::Command::Status
-      Right.oauth.logout
+      RightDocuments.oauth.logout
       output.puts "Logged out."
       ACON::Command::Status::SUCCESS
     end
@@ -128,7 +128,7 @@ module Right
     end
 
     protected def execute(input : ACON::Input::Interface, output : ACON::Output::Interface) : ACON::Command::Status
-      Right.sdk_config
+      RightDocuments.sdk_config
       result = RightDocuments::MeApi.new.api_v1_me_get
       if json?(input)
         output.puts result.to_pretty_json
@@ -154,7 +154,7 @@ module Right
     end
 
     protected def execute(input : ACON::Input::Interface, output : ACON::Output::Interface) : ACON::Command::Status
-      Right.sdk_config
+      RightDocuments.sdk_config
       result = RightDocuments::EntitiesApi.new.api_v1_entities_get
       if json?(input)
         output.puts result.to_pretty_json
@@ -180,7 +180,7 @@ module Right
     end
 
     protected def execute(input : ACON::Input::Interface, output : ACON::Output::Interface) : ACON::Command::Status
-      Right.sdk_config
+      RightDocuments.sdk_config
       result = RightDocuments::EntitiesApi.new.api_v1_entities_id_get(input.argument("entity_id").to_s)
       if json?(input)
         output.puts result.to_pretty_json
@@ -245,7 +245,7 @@ module Right
     end
 
     protected def execute(input : ACON::Input::Interface, output : ACON::Output::Interface) : ACON::Command::Status
-      Right.sdk_config
+      RightDocuments.sdk_config
       result = RightDocuments::CatalogApi.new.api_v1_catalog_get
       if json?(input)
         output.puts result.to_pretty_json
@@ -311,15 +311,15 @@ module Right
       )
       body = RightDocuments::ApiV1EntitiesPostRequest.new(entity: entity).to_json
 
-      uri = URI.parse("#{Right::BASE_URL}/api/v1/entities")
+      uri = URI.parse("#{RightDocuments::BASE_URL}/api/v1/entities")
       headers = HTTP::Headers{
-        "Authorization" => "Bearer #{Right.oauth.access_token}",
+        "Authorization" => "Bearer #{RightDocuments.oauth.access_token}",
         "Content-Type"  => "application/json",
       }
       response = HTTP::Client.post(uri, headers: headers, body: body)
       unless response.status.success?
         output.puts "entities:create failed: HTTP #{response.status.code} — #{response.body}"
-        if hint = Right.enum_error_hint(response.body)
+        if hint = RightDocuments.enum_error_hint(response.body)
           output.puts hint
         end
         return ACON::Command::Status::FAILURE
@@ -355,8 +355,8 @@ module Right
     protected def execute(input : ACON::Input::Interface, output : ACON::Output::Interface) : ACON::Command::Status
       entity_id = input.argument("entity_id").to_s
       # Swagger doesn't describe the response schema, so call HTTP directly.
-      uri = URI.parse("#{Right::BASE_URL}/api/v1/entities/#{URI.encode_path(entity_id)}/documents")
-      headers = HTTP::Headers{"Authorization" => "Bearer #{Right.oauth.access_token}"}
+      uri = URI.parse("#{RightDocuments::BASE_URL}/api/v1/entities/#{URI.encode_path(entity_id)}/documents")
+      headers = HTTP::Headers{"Authorization" => "Bearer #{RightDocuments.oauth.access_token}"}
       response = HTTP::Client.get(uri, headers: headers)
       unless response.status.success?
         output.puts "documents failed: HTTP #{response.status.code} — #{response.body}"
@@ -392,7 +392,7 @@ module Right
         return ACON::Command::Status::FAILURE
       end
 
-      Right.sdk_config
+      RightDocuments.sdk_config
       _, status, _ = RightDocuments::DocumentsApi.new.api_v1_documents_id_delete_with_http_info(id)
       if status == 204
         output.puts "deleted #{id}"
@@ -434,7 +434,7 @@ module Right
       # The swagger doesn't yet describe the multipart body for import, so the
       # SDK's import method takes only entity_id. Drop to direct HTTP until
       # the swagger is fleshed out.
-      uri = URI.parse("#{Right::BASE_URL}/api/v1/entities/#{URI.encode_path(entity_id)}/documents/import")
+      uri = URI.parse("#{RightDocuments::BASE_URL}/api/v1/entities/#{URI.encode_path(entity_id)}/documents/import")
       io = IO::Memory.new
       builder = HTTP::FormData::Builder.new(io)
       File.open(path) do |file|
@@ -442,7 +442,7 @@ module Right
       end
       builder.finish
       headers = HTTP::Headers{
-        "Authorization" => "Bearer #{Right.oauth.access_token}",
+        "Authorization" => "Bearer #{RightDocuments.oauth.access_token}",
         "Content-Type"  => builder.content_type,
       }
       response = HTTP::Client.post(uri, headers: headers, body: io.to_s)
