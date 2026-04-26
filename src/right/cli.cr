@@ -51,7 +51,18 @@ module Right
       app.add EntitiesCreateCommand.new
       app.add DocumentsCommand.new
       app.add ImportCommand.new
+      app.add SkillsCommand.new
       app.run(ACON::Input::ARGV.new(argv))
+    end
+  end
+
+  @[ACONA::AsCommand("skills", description: "Print the agent/LLM usage guide for this CLI")]
+  class SkillsCommand < ACON::Command
+    SKILL = {{ read_file "#{__DIR__}/skill.md" }}
+
+    protected def execute(input : ACON::Input::Interface, output : ACON::Output::Interface) : ACON::Command::Status
+      output.print SKILL
+      ACON::Command::Status::SUCCESS
     end
   end
 

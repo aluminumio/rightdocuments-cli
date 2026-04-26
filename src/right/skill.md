@@ -1,10 +1,4 @@
----
-name: rightdocuments-cli
-description: Use the `rightdocuments` CLI to authenticate, create entities, list and import documents. Use when the user wants to create a new legal entity, attach documents to it, or query their RightDocuments organization from the shell.
-user-invocable: true
----
-
-# RightDocuments CLI
+# RightDocuments CLI — Skill
 
 Drive the RightDocuments API from the shell. The CLI is `rightdocuments` (installed via `brew install aluminumio/tap/rightdocuments`). All data commands accept `-j`/`--json` for machine-readable output — prefer this when piping or parsing.
 
@@ -79,6 +73,7 @@ Lists every document on the entity. Without `-j` you get a tab-separated `id<TAB
 | `entities:create` | Create an entity | `--name`, `--type`, `--state`, `--ein`, `--address`, `--phone`, `-j` |
 | `documents <entity_id>` | List documents on an entity | `-j` |
 | `import <path> --entity <id>` | Upload a PDF as an executed document | `-j` |
+| `skills` | Print this guide (for agents/LLMs) | — |
 
 ## Tips for agentic use
 

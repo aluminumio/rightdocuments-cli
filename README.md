@@ -16,16 +16,10 @@ Or download a binary from [Releases](https://github.com/aluminumio/rightdocument
     rightdocuments entities:create --name NAME --type llc --state DE [-j]
     rightdocuments documents ENTITY_ID [-j]
     rightdocuments import path/to/file.pdf --entity ENTITY_ID [-j]
+    rightdocuments skills                                 # print agent/LLM usage guide
     rightdocuments logout
 
-Pass `-j`/`--json` on any data command for machine-readable output.
-
-## Claude / agent skill
-
-A Claude Code skill that documents the full workflow (login → create entity → import documents) lives at [`skills/rightdocuments-cli/SKILL.md`](skills/rightdocuments-cli/SKILL.md). Install for your user with:
-
-    mkdir -p ~/.claude/skills/rightdocuments-cli
-    cp skills/rightdocuments-cli/SKILL.md ~/.claude/skills/rightdocuments-cli/
+Pass `-j`/`--json` on any data command for machine-readable output. Run `rightdocuments skills` for an end-to-end walkthrough an LLM/agent can consume directly.
 
 ## Build from source
 
