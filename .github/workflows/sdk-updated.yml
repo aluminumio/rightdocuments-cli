@@ -25,7 +25,7 @@ jobs:
         run: shards update rightdocuments-client
       - name: Build + test
         run: |
-          crystal build src/right.cr -o bin/rightdocuments --no-codegen --error-on-warnings
+          crystal build src/rightdocuments.cr -o bin/rightdocuments --no-codegen --error-on-warnings
           if compgen -G "spec/**/*_spec.cr" > /dev/null; then
             crystal spec --error-on-warnings
           fi
