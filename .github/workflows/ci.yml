@@ -1,0 +1,22 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    container: crystallang/crystal:1.13
+    steps:
+      - uses: actions/checkout@v6
+      - name: Configure git auth for private shard deps
+        run: git config --global url."https://x-access-token:${{ secrets.RELEASE_PAT }}@github.com/".insteadOf "https://github.com/"
+      - name: Install dependencies
+        run: shards install
+      - name: Type-check
+        run: crystal build src/right.cr -o bin/rightdocuments --no-codegen --error-on-warnings
+      - name: Run specs
+        run: crystal spec --error-on-warnings
+        if: hashFiles('spec/**/*_spec.cr') != ''

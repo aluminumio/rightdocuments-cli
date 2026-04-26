@@ -1,0 +1,49 @@
+name: Bump SDK
+
+on:
+  repository_dispatch:
+    types: [sdk-updated]
+  workflow_dispatch:
+
+jobs:
+  bump:
+    runs-on: ubuntu-latest
+    container: crystallang/crystal:1.13
+    steps:
+      - name: Install gh + git
+        run: apt-get update && apt-get install -y --no-install-recommends gh git
+      - uses: actions/checkout@v6
+        with:
+          token: ${{ secrets.RELEASE_PAT }}
+      - name: Configure git
+        run: |
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          git config --global url."https://x-access-token:${{ secrets.RELEASE_PAT }}@github.com/".insteadOf "https://github.com/"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+      - name: Bump SDK
+        run: shards update rightdocuments-client
+      - name: Build + test
+        run: |
+          crystal build src/right.cr -o bin/rightdocuments --no-codegen --error-on-warnings
+          if compgen -G "spec/**/*_spec.cr" > /dev/null; then
+            crystal spec --error-on-warnings
+          fi
+      - name: Open auto-merge PR if shard.lock changed
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_PAT }}
+        run: |
+          if git diff --quiet shard.lock; then
+            echo "No SDK change to commit"
+            exit 0
+          fi
+          SDK_VER=$(awk '/^  rightdocuments-client:/{f=1; next} f && /^    version:/{print $2; exit}' shard.lock)
+          BRANCH="auto/bump-sdk-${SDK_VER}"
+          git checkout -b "$BRANCH"
+          git add shard.lock
+          git commit -m "Bump rightdocuments-client to ${SDK_VER}"
+          git push origin "$BRANCH"
+          gh pr create --title "Bump rightdocuments-client to ${SDK_VER}" \
+                       --body "Auto-bump triggered by aluminumio/rightdocuments-sdk-crystal-lang release ${SDK_VER}." \
+                       --head "$BRANCH" --base main
+          gh pr merge "$BRANCH" --auto --squash --delete-branch

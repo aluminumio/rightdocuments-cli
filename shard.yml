@@ -1,0 +1,26 @@
+name: right
+version: 0.2.0
+
+authors:
+  - usiegj00 <248302+usiegj00@users.noreply.github.com>
+
+targets:
+  rightdocuments:
+    main: src/right.cr
+
+crystal: ">= 1.10"
+
+dependencies:
+  athena-console:
+    github: athena-framework/console
+    version: ~> 0.4.3
+  oauth-device-flow:
+    github: aluminumio/oauth-device-flow.cr
+    version: ~> 0.1
+  rightdocuments-client:
+    github: aluminumio/rightdocuments-sdk-crystal-lang
+    version: ~> 0.1
+
+development_dependencies:
+  ameba:
+    github: crystal-ameba/ameba

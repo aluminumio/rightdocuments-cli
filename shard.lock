@@ -1,0 +1,34 @@
+version: 2.0
+shards:
+  ameba:
+    git: https://github.com/crystal-ameba/ameba.git
+    version: 1.6.4
+
+  athena-clock:
+    git: https://github.com/athena-framework/clock.git
+    version: 0.3.0
+
+  athena-console:
+    git: https://github.com/athena-framework/console.git
+    version: 0.4.3
+
+  crest:
+    git: https://github.com/mamantoha/crest.git
+    version: 1.3.13
+
+  http-client-digest_auth:
+    git: https://github.com/mamantoha/http-client-digest_auth.git
+    version: 0.6.0
+
+  http_proxy:
+    git: https://github.com/mamantoha/http_proxy.git
+    version: 0.14.0
+
+  oauth-device-flow:
+    git: https://github.com/aluminumio/oauth-device-flow.cr.git
+    version: 0.1.0
+
+  rightdocuments-client:
+    git: https://github.com/aluminumio/rightdocuments-sdk-crystal-lang.git
+    version: 0.1.2
+
