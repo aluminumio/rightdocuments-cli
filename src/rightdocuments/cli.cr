@@ -81,6 +81,7 @@ module RightDocuments
       app.add EntitiesInfoCommand.new
       app.add DocumentsCommand.new
       app.add DocumentsDeleteCommand.new
+      app.add DocumentsUpdateCommand.new
       app.add ImportCommand.new
       app.add CatalogCommand.new
       app.add SkillsCommand.new
@@ -145,7 +146,7 @@ module RightDocuments
     end
   end
 
-  @[ACONA::AsCommand("entities", description: "List entities you have access to")]
+  @[ACONA::AsCommand("entities:list|entities", description: "List entities you have access to")]
   class EntitiesCommand < ACON::Command
     include JSONOption
 
@@ -236,7 +237,7 @@ module RightDocuments
     end
   end
 
-  @[ACONA::AsCommand("catalog", description: "List server-defined entity types, formation states, and statuses")]
+  @[ACONA::AsCommand("catalog", description: "List entity types, formation states, statuses, and checklists")]
   class CatalogCommand < ACON::Command
     include JSONOption
 
@@ -245,15 +246,38 @@ module RightDocuments
     end
 
     protected def execute(input : ACON::Input::Interface, output : ACON::Output::Interface) : ACON::Command::Status
-      RightDocuments.sdk_config
-      result = RightDocuments::CatalogApi.new.api_v1_catalog_get
-      if json?(input)
-        output.puts result.to_pretty_json
-      else
-        output.puts "entity_types:     #{(result.entity_types || [] of String).join(", ")}"
-        output.puts "formation_states: #{(result.formation_states || [] of String).join(", ")}"
-        output.puts "entity_statuses:  #{(result.entity_statuses || [] of String).join(", ")}"
+      uri = URI.parse("#{RightDocuments::BASE_URL}/api/v1/catalog")
+      response = HTTP::Client.get(uri)
+      unless response.status.success?
+        output.puts "catalog failed: HTTP #{response.status.code}"
+        return ACON::Command::Status::FAILURE
       end
+
+      if json?(input)
+        output.puts response.body
+        return ACON::Command::Status::SUCCESS
+      end
+
+      catalog = JSON.parse(response.body)
+      output.puts "entity_types:     #{catalog["entity_types"]?.try(&.as_a.join(", "))}"
+      output.puts "formation_states: #{catalog["formation_states"]?.try(&.as_a.join(", "))}"
+      output.puts "entity_statuses:  #{catalog["entity_statuses"]?.try(&.as_a.join(", "))}"
+
+      if reqs = catalog["formation_requirements"]?.try(&.as_h?)
+        output.puts ""
+        reqs.each do |key, steps|
+          output.puts "--- #{key} ---"
+          steps.as_a.each do |step|
+            tag  = step["required_tag"]?.try(&.as_s) || "?"
+            name = step["name"]?.try(&.as_s) || "?"
+            desc = step["description"]?.try(&.as_s) || ""
+            output.puts "  [#{tag}] #{name}"
+            output.puts "    #{desc}" unless desc.empty?
+          end
+          output.puts ""
+        end
+      end
+
       ACON::Command::Status::SUCCESS
     rescue ex
       output.puts "catalog failed: #{ex.message}"
@@ -407,6 +431,63 @@ module RightDocuments
     end
   end
 
+  @[ACONA::AsCommand("documents:update", description: "Update document metadata (tags, name)")]
+  class DocumentsUpdateCommand < ACON::Command
+    include JSONOption
+
+    protected def configure : Nil
+      DocumentsUpdateCommand.add_json_option(self)
+      self
+        .argument("id", :required, "document ID to update")
+        .option("tags", "t", ACON::Input::Option::Value[:required], "comma-separated tags")
+        .option("name", nil, ACON::Input::Option::Value[:required], "display name")
+    end
+
+    protected def execute(input : ACON::Input::Interface, output : ACON::Output::Interface) : ACON::Command::Status
+      id = input.argument("id").to_s
+      body = {} of String => String
+      if tags = input.option("tags").to_s.presence
+        body["tag_list"] = tags
+      end
+      if name = input.option("name").to_s.presence
+        body["name"] = name
+      end
+      if body.empty?
+        output.puts "error: provide --tags and/or --name"
+        return ACON::Command::Status::FAILURE
+      end
+
+      uri = URI.parse("#{RightDocuments::BASE_URL}/api/v1/documents/#{URI.encode_path(id)}")
+      headers = HTTP::Headers{
+        "Authorization" => "Bearer #{RightDocuments.oauth.access_token}",
+        "Content-Type"  => "application/json",
+      }
+      response = HTTP::Client.patch(uri, headers: headers, body: body.to_json)
+      unless response.status.success?
+        output.puts "documents:update failed: HTTP #{response.status.code} — #{response.body}"
+        return ACON::Command::Status::FAILURE
+      end
+
+      if json?(input)
+        output.puts response.body
+      else
+        parsed = JSON.parse(response.body).dig?("document")
+        if parsed
+          output.puts "#{parsed["id"]?}\t#{parsed["name"]?}"
+          if tags_arr = parsed["tags"]?.try(&.as_a?)
+            output.puts "tags: #{tags_arr.join(", ")}"
+          end
+        else
+          output.puts response.body
+        end
+      end
+      ACON::Command::Status::SUCCESS
+    rescue ex
+      output.puts "documents:update failed: #{ex.message}"
+      ACON::Command::Status::FAILURE
+    end
+  end
+
   @[ACONA::AsCommand("import", description: "Import a PDF as an executed document")]
   class ImportCommand < ACON::Command
     include JSONOption
@@ -416,6 +497,8 @@ module RightDocuments
       self
         .argument("path", :required, "path to the PDF file")
         .option("entity", "e", ACON::Input::Option::Value[:required], "entity ID to import under")
+        .option("tags", "t", ACON::Input::Option::Value[:required], "comma-separated tags to apply")
+        .option("name", "n", ACON::Input::Option::Value[:required], "display name for the document")
     end
 
     protected def execute(input : ACON::Input::Interface, output : ACON::Output::Interface) : ACON::Command::Status
@@ -447,22 +530,39 @@ module RightDocuments
       }
       response = HTTP::Client.post(uri, headers: headers, body: io.to_s)
 
-      if response.status.success?
-        if json?(input)
-          output.puts response.body
-        else
-          parsed = JSON.parse(response.body) rescue nil
-          if parsed && (id = parsed["id"]?)
-            output.puts "#{id}\t#{parsed["name"]? || id}"
-          else
-            output.puts response.body
-          end
-        end
-        ACON::Command::Status::SUCCESS
-      else
+      unless response.status.success?
         output.puts "import failed: HTTP #{response.status.code} — #{response.body}"
-        ACON::Command::Status::FAILURE
+        return ACON::Command::Status::FAILURE
       end
+
+      parsed = JSON.parse(response.body).dig?("document") rescue nil
+      doc_id = parsed.try(&.["id"]?).try(&.as_s?)
+
+      # Apply tags/name via PATCH if provided
+      tags_val = input.option("tags").to_s.presence
+      name_val = input.option("name").to_s.presence
+      if doc_id && (tags_val || name_val)
+        patch_body = {} of String => String
+        patch_body["tag_list"] = tags_val.not_nil! if tags_val
+        patch_body["name"] = name_val.not_nil! if name_val
+        patch_uri = URI.parse("#{RightDocuments::BASE_URL}/api/v1/documents/#{URI.encode_path(doc_id)}")
+        patch_headers = HTTP::Headers{
+          "Authorization" => "Bearer #{RightDocuments.oauth.access_token}",
+          "Content-Type"  => "application/json",
+        }
+        patch_resp = HTTP::Client.patch(patch_uri, headers: patch_headers, body: patch_body.to_json)
+        parsed = JSON.parse(patch_resp.body).dig?("document") rescue parsed if patch_resp.status.success?
+      end
+
+      if json?(input)
+        output.puts (parsed || JSON.parse(response.body)).to_pretty_json
+      else
+        output.puts "#{parsed.try(&.["id"]?) || doc_id}\t#{parsed.try(&.["name"]?) || doc_id}"
+        if tags_arr = parsed.try(&.["tags"]?).try(&.as_a?)
+          output.puts "tags: #{tags_arr.join(", ")}" unless tags_arr.empty?
+        end
+      end
+      ACON::Command::Status::SUCCESS
     rescue ex
       output.puts "import failed: #{ex.message}"
       ACON::Command::Status::FAILURE
