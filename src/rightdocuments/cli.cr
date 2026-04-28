@@ -78,8 +78,12 @@ module RightDocuments
       app.add LogoutCommand.new
       app.add EntitiesCommand.new
       app.add EntitiesCreateCommand.new
+      app.add EntitiesUpdateCommand.new
       app.add EntitiesInfoCommand.new
+      app.add TemplatesCommand.new
+      app.add TemplatesInfoCommand.new
       app.add DocumentsCommand.new
+      app.add DocumentsCreateCommand.new
       app.add DocumentsDeleteCommand.new
       app.add DocumentsUpdateCommand.new
       app.add ImportCommand.new
@@ -146,7 +150,7 @@ module RightDocuments
     end
   end
 
-  @[ACONA::AsCommand("entities:list|entities", description: "List entities you have access to")]
+  @[ACONA::AsCommand("entities:list|entities", description: "List entities")]
   class EntitiesCommand < ACON::Command
     include JSONOption
 
@@ -367,7 +371,212 @@ module RightDocuments
     end
   end
 
-  @[ACONA::AsCommand("documents", description: "List documents for an entity")]
+  @[ACONA::AsCommand("entities:update", description: "Update an entity's metadata")]
+  class EntitiesUpdateCommand < ACON::Command
+    include JSONOption
+
+    protected def configure : Nil
+      EntitiesUpdateCommand.add_json_option(self)
+      self
+        .argument("entity_id", :required, "entity ID to update")
+        .option("name", nil, ACON::Input::Option::Value[:required], "legal name")
+        .option("status", nil, ACON::Input::Option::Value[:required], "entity status")
+        .option("ein", nil, ACON::Input::Option::Value[:required], "EIN")
+        .option("address", nil, ACON::Input::Option::Value[:required], "principal address")
+        .option("phone", nil, ACON::Input::Option::Value[:required], "phone number")
+        .option("formation-date", nil, ACON::Input::Option::Value[:required], "formation date (YYYY-MM-DD)")
+    end
+
+    protected def execute(input : ACON::Input::Interface, output : ACON::Output::Interface) : ACON::Command::Status
+      id = input.argument("entity_id").to_s
+      entity = {} of String => String | Nil
+      %w[name status ein address phone].each do |f|
+        if v = input.option(f).to_s.presence
+          entity[f] = v
+        end
+      end
+      if v = input.option("formation-date").to_s.presence
+        entity["formation_date"] = v
+      end
+      if entity.empty?
+        output.puts "error: provide at least one field to update (--name, --status, --ein, etc.)"
+        return ACON::Command::Status::FAILURE
+      end
+
+      uri = URI.parse("#{RightDocuments::BASE_URL}/api/v1/entities/#{URI.encode_path(id)}")
+      headers = HTTP::Headers{
+        "Authorization" => "Bearer #{RightDocuments.oauth.access_token}",
+        "Content-Type"  => "application/json",
+      }
+      body = { "entity" => entity }.to_json
+      response = HTTP::Client.patch(uri, headers: headers, body: body)
+      unless response.status.success?
+        output.puts "entities:update failed: HTTP #{response.status.code} — #{response.body}"
+        return ACON::Command::Status::FAILURE
+      end
+
+      if json?(input)
+        output.puts response.body
+      else
+        parsed = JSON.parse(response.body).dig?("entity")
+        if parsed
+          output.puts "#{parsed["id"]?}\t#{parsed["name"]?}"
+        else
+          output.puts response.body
+        end
+      end
+      ACON::Command::Status::SUCCESS
+    rescue ex
+      output.puts "entities:update failed: #{ex.message}"
+      ACON::Command::Status::FAILURE
+    end
+  end
+
+  @[ACONA::AsCommand("templates:list|templates", description: "List available templates")]
+  class TemplatesCommand < ACON::Command
+    include JSONOption
+
+    protected def configure : Nil
+      TemplatesCommand.add_json_option(self)
+    end
+
+    protected def execute(input : ACON::Input::Interface, output : ACON::Output::Interface) : ACON::Command::Status
+      uri = URI.parse("#{RightDocuments::BASE_URL}/api/v1/templates")
+      headers = HTTP::Headers{"Authorization" => "Bearer #{RightDocuments.oauth.access_token}"}
+      response = HTTP::Client.get(uri, headers: headers)
+      unless response.status.success?
+        output.puts "templates failed: HTTP #{response.status.code}"
+        return ACON::Command::Status::FAILURE
+      end
+
+      if json?(input)
+        output.puts response.body
+      else
+        parsed = JSON.parse(response.body)
+        (parsed["templates"]?.try(&.as_a?) || [] of JSON::Any).each do |t|
+          tags = t["tags"]?.try(&.as_a?.try(&.join(", "))) || ""
+          output.puts "#{t["id"]?}\t#{t["name"]?}"
+          output.puts "  tags: #{tags}" unless tags.empty?
+        end
+      end
+      ACON::Command::Status::SUCCESS
+    rescue ex
+      output.puts "templates failed: #{ex.message}"
+      ACON::Command::Status::FAILURE
+    end
+  end
+
+  @[ACONA::AsCommand("templates:info", description: "Show template details and required fields")]
+  class TemplatesInfoCommand < ACON::Command
+    include JSONOption
+
+    protected def configure : Nil
+      TemplatesInfoCommand.add_json_option(self)
+      self.argument("template_id", :required, "template ID to inspect")
+    end
+
+    protected def execute(input : ACON::Input::Interface, output : ACON::Output::Interface) : ACON::Command::Status
+      id = input.argument("template_id").to_s
+      uri = URI.parse("#{RightDocuments::BASE_URL}/api/v1/templates/#{URI.encode_path(id)}")
+      headers = HTTP::Headers{"Authorization" => "Bearer #{RightDocuments.oauth.access_token}"}
+      response = HTTP::Client.get(uri, headers: headers)
+      unless response.status.success?
+        output.puts "templates:info failed: HTTP #{response.status.code}"
+        return ACON::Command::Status::FAILURE
+      end
+
+      if json?(input)
+        output.puts response.body
+        return ACON::Command::Status::SUCCESS
+      end
+
+      t = JSON.parse(response.body).dig?("template")
+      return ACON::Command::Status::FAILURE unless t
+
+      output.puts "#{t["name"]?}"
+      output.puts "tags: #{t["tags"]?.try(&.as_a?.try(&.join(", ")))}"
+      output.puts ""
+      output.puts "Fields:"
+      (t["fields"]?.try(&.as_a?) || [] of JSON::Any).each do |f|
+        entity = f["entity_field"]?.try(&.as_bool?) ? " (auto)" : ""
+        req = f["required"]?.try(&.as_bool?) ? "*" : " "
+        default = f["default"]?.try(&.as_s?)
+        line = "  #{req} #{f["name"]?} — #{f["label"]?} (#{f["type"]?})#{entity}"
+        line += " [default: #{default}]" if default
+        output.puts line
+      end
+      ACON::Command::Status::SUCCESS
+    rescue ex
+      output.puts "templates:info failed: #{ex.message}"
+      ACON::Command::Status::FAILURE
+    end
+  end
+
+  @[ACONA::AsCommand("documents:create", description: "Create a document from a template")]
+  class DocumentsCreateCommand < ACON::Command
+    include JSONOption
+
+    protected def configure : Nil
+      DocumentsCreateCommand.add_json_option(self)
+      self
+        .option("template", nil, ACON::Input::Option::Value[:required], "template ID")
+        .option("entity", "e", ACON::Input::Option::Value[:required], "entity ID")
+        .option("field", "f", ACON::Input::Option::Value[:required] | ACON::Input::Option::Value[:is_array], "field=value pairs")
+        .option("execute", nil, ACON::Input::Option::Value[:none], "finalize and execute immediately")
+    end
+
+    protected def execute(input : ACON::Input::Interface, output : ACON::Output::Interface) : ACON::Command::Status
+      template_id = input.option("template").to_s
+      entity_id = input.option("entity").to_s
+      if template_id.empty? || entity_id.empty?
+        output.puts "error: --template and --entity are required"
+        return ACON::Command::Status::FAILURE
+      end
+
+      field_values = {} of String => String
+      input.option("field", Array(String)).each do |pair|
+        k, _, v = pair.partition("=")
+        field_values[k] = v unless k.empty?
+      end
+
+      body = {
+        "template_id"  => template_id,
+        "field_values"  => field_values,
+        "execute"      => input.option("execute", Bool),
+      }
+
+      uri = URI.parse("#{RightDocuments::BASE_URL}/api/v1/entities/#{URI.encode_path(entity_id)}/documents")
+      headers = HTTP::Headers{
+        "Authorization" => "Bearer #{RightDocuments.oauth.access_token}",
+        "Content-Type"  => "application/json",
+      }
+      response = HTTP::Client.post(uri, headers: headers, body: body.to_json)
+      unless response.status.success?
+        output.puts "documents:create failed: HTTP #{response.status.code} — #{response.body}"
+        return ACON::Command::Status::FAILURE
+      end
+
+      if json?(input)
+        output.puts response.body
+      else
+        doc = JSON.parse(response.body).dig?("document")
+        if doc
+          output.puts "#{doc["id"]?}\t#{doc["name"]?}\tstatus=#{doc["status"]?}"
+          if tags = doc["tags"]?.try(&.as_a?)
+            output.puts "tags: #{tags.join(", ")}" unless tags.empty?
+          end
+        else
+          output.puts response.body
+        end
+      end
+      ACON::Command::Status::SUCCESS
+    rescue ex
+      output.puts "documents:create failed: #{ex.message}"
+      ACON::Command::Status::FAILURE
+    end
+  end
+
+  @[ACONA::AsCommand("documents:list|documents", description: "List documents for an entity")]
   class DocumentsCommand < ACON::Command
     include JSONOption
 
@@ -498,7 +707,7 @@ module RightDocuments
         .argument("path", :required, "path to the PDF file")
         .option("entity", "e", ACON::Input::Option::Value[:required], "entity ID to import under")
         .option("tags", "t", ACON::Input::Option::Value[:required], "comma-separated tags to apply")
-        .option("name", "n", ACON::Input::Option::Value[:required], "display name for the document")
+        .option("name", nil, ACON::Input::Option::Value[:required], "display name for the document")
     end
 
     protected def execute(input : ACON::Input::Interface, output : ACON::Output::Interface) : ACON::Command::Status
