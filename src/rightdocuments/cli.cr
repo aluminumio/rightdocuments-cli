@@ -385,12 +385,13 @@ module RightDocuments
         .option("address", nil, ACON::Input::Option::Value[:required], "principal address")
         .option("phone", nil, ACON::Input::Option::Value[:required], "phone number")
         .option("formation-date", nil, ACON::Input::Option::Value[:required], "formation date (YYYY-MM-DD)")
+        .option("notes", nil, ACON::Input::Option::Value[:required], "markdown notes about the entity")
     end
 
     protected def execute(input : ACON::Input::Interface, output : ACON::Output::Interface) : ACON::Command::Status
       id = input.argument("entity_id").to_s
       entity = {} of String => String | Nil
-      %w[name status ein address phone].each do |f|
+      %w[name status ein address phone notes].each do |f|
         if v = input.option(f).to_s.presence
           entity[f] = v
         end
