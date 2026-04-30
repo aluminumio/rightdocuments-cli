@@ -81,6 +81,7 @@ module RightDocuments
       app.add EntitiesUpdateCommand.new
       app.add EntitiesInfoCommand.new
       app.add TemplatesCommand.new
+      app.add TemplatesCreateCommand.new
       app.add TemplatesInfoCommand.new
       app.add DocumentsCommand.new
       app.add DocumentsCreateCommand.new
@@ -509,6 +510,78 @@ module RightDocuments
       ACON::Command::Status::SUCCESS
     rescue ex
       output.puts "templates:info failed: #{ex.message}"
+      ACON::Command::Status::FAILURE
+    end
+  end
+
+  @[ACONA::AsCommand("templates:create", description: "Create a template from a markdown file")]
+  class TemplatesCreateCommand < ACON::Command
+    include JSONOption
+
+    protected def configure : Nil
+      TemplatesCreateCommand.add_json_option(self)
+      self
+        .option("name", nil, ACON::Input::Option::Value[:required], "Template name")
+        .option("content", nil, ACON::Input::Option::Value[:required], "Path to markdown file with template content")
+        .option("description", nil, ACON::Input::Option::Value[:required], "Description of when to use this template")
+        .option("tags", nil, ACON::Input::Option::Value[:required], "Comma-separated tags")
+        .option("public", nil, ACON::Input::Option::Value[:none], "Make template visible to other organizations")
+    end
+
+    protected def execute(input : ACON::Input::Interface, output : ACON::Output::Interface) : ACON::Command::Status
+      name = input.option("name").to_s
+      content_path = input.option("content").to_s
+
+      if name.empty? || content_path.empty?
+        output.puts "error: --name and --content are required"
+        return ACON::Command::Status::FAILURE
+      end
+
+      unless File.exists?(content_path)
+        output.puts "error: file not found: #{content_path}"
+        return ACON::Command::Status::FAILURE
+      end
+
+      content = File.read(content_path)
+
+      template = {} of String => String | Bool
+      template["name"] = name
+      template["content"] = content
+      if desc = input.option("description").to_s.presence
+        template["description"] = desc
+      end
+      if tags = input.option("tags").to_s.presence
+        template["tag_list"] = tags
+      end
+      if input.option("public", Bool)
+        template["public"] = true
+      end
+
+      uri = URI.parse("#{RightDocuments::BASE_URL}/api/v1/templates")
+      headers = HTTP::Headers{
+        "Authorization" => "Bearer #{RightDocuments.oauth.access_token}",
+        "Content-Type"  => "application/json",
+      }
+      body = { "template" => template }.to_json
+      response = HTTP::Client.post(uri, headers: headers, body: body)
+      unless response.status.success?
+        output.puts "templates:create failed: HTTP #{response.status.code} — #{response.body}"
+        return ACON::Command::Status::FAILURE
+      end
+
+      if json?(input)
+        output.puts response.body
+      else
+        parsed = JSON.parse(response.body).dig?("template")
+        if parsed
+          output.puts "#{parsed["id"]?}\t#{parsed["name"]?}"
+        else
+          output.puts response.body
+        end
+      end
+      ACON::Command::Status::SUCCESS
+    rescue ex
+      output.puts "templates:create failed: #{ex.message}"
       ACON::Command::Status::FAILURE
     end
   end
