@@ -155,20 +155,90 @@ module RightDocuments
   class EntitiesCommand < ACON::Command
     include JSONOption
 
+    TYPE_SHORT = {
+      "C-Corporation" => "C-Corp", "S-Corporation" => "S-Corp",
+      "Limited Liability Company" => "LLC", "General Partnership" => "GP",
+      "Limited Partnership" => "LP", "Limited Liability Partnership" => "LLP",
+    }
+
     protected def configure : Nil
       EntitiesCommand.add_json_option(self)
     end
 
     protected def execute(input : ACON::Input::Interface, output : ACON::Output::Interface) : ACON::Command::Status
-      RightDocuments.sdk_config
-      result = RightDocuments::EntitiesApi.new.api_v1_entities_get
-      if json?(input)
-        output.puts result.to_pretty_json
-      else
-        (result.entities || [] of typeof(result.entities.not_nil!.first)).each do |entity|
-          output.puts "#{entity.id}\t#{entity.name}"
-        end
+      uri = URI.parse("#{RightDocuments::BASE_URL}/api/v1/entities")
+      headers = HTTP::Headers{"Authorization" => "Bearer #{RightDocuments.oauth.access_token}"}
+      response = HTTP::Client.get(uri, headers: headers)
+      unless response.status.success?
+        output.puts "entities failed: HTTP #{response.status.code}"
+        return ACON::Command::Status::FAILURE
       end
+
+      if json?(input)
+        output.puts response.body
+        return ACON::Command::Status::SUCCESS
+      end
+
+      parsed = JSON.parse(response.body)
+      entities = parsed["entities"]?.try(&.as_a?) || [] of JSON::Any
+
+      # Table header
+      output.puts ""
+      output.puts String.build { |s|
+        s << "  "
+        s << "Name".ljust(36).colorize(:white).mode(:bold)
+        s << "Type".ljust(8).colorize(:white).mode(:bold)
+        s << "State".ljust(6).colorize(:white).mode(:bold)
+        s << "Status".ljust(14).colorize(:white).mode(:bold)
+        s << "Incorporated".colorize(:white).mode(:bold)
+      }
+      output.puts "  #{"─" * 80}"
+
+      entities.sort_by { |e| e["name"]?.try(&.as_s?) || "" }.each do |entity|
+        name = entity["name"]?.try(&.as_s?) || "?"
+        etype = entity["entity_type"]?.try(&.as_s?) || ""
+        short_type = TYPE_SHORT[etype]? || etype[0..5]
+        state = entity["state"]?.try(&.as_s?) || ""
+        short_state = state == "California" ? "CA" : state == "Delaware" ? "DE" : state[0..1]
+        status = entity["status"]?.try(&.as_s?) || ""
+        fdate = entity["formation_date"]?.try(&.as_s?)
+
+        status_colored = case status
+                         when "Operating"
+                           status.colorize(:green)
+                         when .includes?("Dissolution")
+                           status.colorize(:red)
+                         when "Unformed"
+                           status.colorize(:dark_gray)
+                         else
+                           status.colorize(:yellow)
+                         end
+
+        date_str = if fdate && !fdate.empty?
+                     begin
+                       t = Time.parse_utc(fdate, "%Y-%m-%d")
+                       t.to_s("%b %Y")
+                     rescue
+                       fdate
+                     end
+                   else
+                     "—"
+                   end
+
+        output.puts String.build { |s|
+          s << "  "
+          s << name.ljust(36)
+          s << short_type.ljust(8).colorize(:cyan)
+          s << short_state.ljust(6)
+          s << status_colored.to_s.ljust(14)
+          s << date_str
+        }
+      end
+
+      output.puts ""
+      output.puts "  #{entities.size} entities"
+      output.puts ""
+
       ACON::Command::Status::SUCCESS
     rescue ex
       output.puts "entities failed: #{ex.message}"
