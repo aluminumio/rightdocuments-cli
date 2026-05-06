@@ -203,17 +203,6 @@ module RightDocuments
         status = entity["status"]?.try(&.as_s?) || ""
         fdate = entity["formation_date"]?.try(&.as_s?)
 
-        status_colored = case status
-                         when "Operating"
-                           status.colorize(:green)
-                         when .includes?("Dissolution")
-                           status.colorize(:red)
-                         when "Unformed"
-                           status.colorize(:dark_gray)
-                         else
-                           status.colorize(:yellow)
-                         end
-
         date_str = if fdate && !fdate.empty?
                      begin
                        t = Time.parse_utc(fdate, "%Y-%m-%d")
@@ -230,7 +219,9 @@ module RightDocuments
           s << name.ljust(36)
           s << short_type.ljust(8).colorize(:cyan)
           s << short_state.ljust(6)
-          s << status_colored.to_s.ljust(14)
+          s << status.ljust(14).colorize(
+            status == "Operating" ? :green : status.includes?("Dissolution") ? :red : status == "Unformed" ? :dark_gray : :yellow
+          )
           s << date_str
         }
       end
