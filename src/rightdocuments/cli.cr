@@ -237,18 +237,51 @@ module RightDocuments
     end
   end
 
-  @[ACONA::AsCommand("entities:info", description: "Show a single entity by ID")]
+  UUID_RE = /\A[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\z/i
+
+  # Resolve an entity argument that may be a UUID or a name. When a name is
+  # given, fetches the entity list and finds the match (case-insensitive).
+  def self.resolve_entity_id(identifier : String) : String
+    return identifier if identifier.matches?(UUID_RE)
+
+    uri = URI.parse("#{BASE_URL}/api/v1/entities")
+    headers = HTTP::Headers{"Authorization" => "Bearer #{oauth.access_token}"}
+    response = HTTP::Client.get(uri, headers: headers)
+    unless response.status.success?
+      raise "could not list entities (HTTP #{response.status.code})"
+    end
+
+    entities = JSON.parse(response.body)["entities"]?.try(&.as_a?) || [] of JSON::Any
+    needle = identifier.downcase
+    match = entities.find { |e| e["name"]?.try(&.as_s?).try(&.downcase) == needle }
+    if match
+      match["id"].as_s
+    else
+      candidates = entities.select { |e| (e["name"]?.try(&.as_s?) || "").downcase.includes?(needle) }
+      if candidates.size == 1
+        candidates.first["id"].as_s
+      elsif candidates.size > 1
+        names = candidates.map { |e| "  #{e["name"]?.try(&.as_s?)}" }.join("\n")
+        raise "\"#{identifier}\" matches multiple entities:\n#{names}\nPlease be more specific."
+      else
+        raise "no entity found matching \"#{identifier}\". Run `rightdocuments entities` to see available names."
+      end
+    end
+  end
+
+  @[ACONA::AsCommand("entities:info", description: "Show a single entity by name or ID")]
   class EntitiesInfoCommand < ACON::Command
     include JSONOption
 
     protected def configure : Nil
       EntitiesInfoCommand.add_json_option(self)
-      self.argument("entity_id", :required, "entity ID to look up")
+      self.argument("entity", :required, "entity name or ID")
     end
 
     protected def execute(input : ACON::Input::Interface, output : ACON::Output::Interface) : ACON::Command::Status
+      entity_id = RightDocuments.resolve_entity_id(input.argument("entity").to_s)
       RightDocuments.sdk_config
-      result = RightDocuments::EntitiesApi.new.api_v1_entities_id_get(input.argument("entity_id").to_s)
+      result = RightDocuments::EntitiesApi.new.api_v1_entities_id_get(entity_id)
       if json?(input)
         output.puts result.to_pretty_json
       else
@@ -440,7 +473,7 @@ module RightDocuments
     protected def configure : Nil
       EntitiesUpdateCommand.add_json_option(self)
       self
-        .argument("entity_id", :required, "entity ID to update")
+        .argument("entity", :required, "entity name or ID")
         .option("name", nil, ACON::Input::Option::Value[:required], "legal name")
         .option("status", nil, ACON::Input::Option::Value[:required], "entity status")
         .option("ein", nil, ACON::Input::Option::Value[:required], "EIN")
@@ -451,7 +484,7 @@ module RightDocuments
     end
 
     protected def execute(input : ACON::Input::Interface, output : ACON::Output::Interface) : ACON::Command::Status
-      id = input.argument("entity_id").to_s
+      id = RightDocuments.resolve_entity_id(input.argument("entity").to_s)
       entity = {} of String => String | Nil
       %w[name status ein address phone notes].each do |f|
         if v = input.option(f).to_s.presence
@@ -655,18 +688,19 @@ module RightDocuments
       DocumentsCreateCommand.add_json_option(self)
       self
         .option("template", nil, ACON::Input::Option::Value[:required], "template ID")
-        .option("entity", "e", ACON::Input::Option::Value[:required], "entity ID")
+        .option("entity", "e", ACON::Input::Option::Value[:required], "entity name or ID")
         .option("field", "f", ACON::Input::Option::Value[:required] | ACON::Input::Option::Value[:is_array], "field=value pairs")
         .option("execute", nil, ACON::Input::Option::Value[:none], "finalize and execute immediately")
     end
 
     protected def execute(input : ACON::Input::Interface, output : ACON::Output::Interface) : ACON::Command::Status
       template_id = input.option("template").to_s
-      entity_id = input.option("entity").to_s
-      if template_id.empty? || entity_id.empty?
+      raw_entity = input.option("entity").to_s
+      if template_id.empty? || raw_entity.empty?
         output.puts "error: --template and --entity are required"
         return ACON::Command::Status::FAILURE
       end
+      entity_id = RightDocuments.resolve_entity_id(raw_entity)
 
       field_values = {} of String => String
       input.option("field", Array(String)).each do |pair|
@@ -717,11 +751,11 @@ module RightDocuments
 
     protected def configure : Nil
       DocumentsCommand.add_json_option(self)
-      self.argument("entity_id", :required, "entity ID to list documents under")
+      self.argument("entity", :required, "entity name or ID")
     end
 
     protected def execute(input : ACON::Input::Interface, output : ACON::Output::Interface) : ACON::Command::Status
-      entity_id = input.argument("entity_id").to_s
+      entity_id = RightDocuments.resolve_entity_id(input.argument("entity").to_s)
       # Swagger doesn't describe the response schema, so call HTTP directly.
       uri = URI.parse("#{RightDocuments::BASE_URL}/api/v1/entities/#{URI.encode_path(entity_id)}/documents")
       headers = HTTP::Headers{"Authorization" => "Bearer #{RightDocuments.oauth.access_token}"}
@@ -840,23 +874,25 @@ module RightDocuments
       ImportCommand.add_json_option(self)
       self
         .argument("path", :required, "path to the PDF file")
-        .option("entity", "e", ACON::Input::Option::Value[:required], "entity ID to import under")
+        .option("entity", "e", ACON::Input::Option::Value[:required], "entity name or ID")
         .option("tags", "t", ACON::Input::Option::Value[:required], "comma-separated tags to apply")
         .option("name", nil, ACON::Input::Option::Value[:required], "display name for the document")
     end
 
     protected def execute(input : ACON::Input::Interface, output : ACON::Output::Interface) : ACON::Command::Status
       path = input.argument("path").to_s
-      entity_id = input.option("entity").to_s
+      raw_entity = input.option("entity").to_s
 
-      if entity_id.empty?
-        output.puts "error: --entity ENTITY_ID is required"
+      if raw_entity.empty?
+        output.puts "error: --entity is required (name or ID)"
         return ACON::Command::Status::FAILURE
       end
       unless File.exists?(path)
         output.puts "error: file not found: #{path}"
         return ACON::Command::Status::FAILURE
       end
+
+      entity_id = RightDocuments.resolve_entity_id(raw_entity)
 
       # The swagger doesn't yet describe the multipart body for import, so the
       # SDK's import method takes only entity_id. Drop to direct HTTP until
