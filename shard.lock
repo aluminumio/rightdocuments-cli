@@ -22,7 +22,7 @@ shards:
 
   http_proxy:
     git: https://github.com/mamantoha/http_proxy.git
-    version: 0.14.0
+    version: 0.15.1
 
   oauth-device-flow:
     git: https://github.com/aluminumio/oauth-device-flow.cr.git
@@ -30,5 +30,5 @@ shards:
 
   rightdocuments-client:
     git: https://github.com/aluminumio/rightdocuments-sdk-crystal-lang.git
-    version: 0.1.13
+    version: 0.1.14
 
