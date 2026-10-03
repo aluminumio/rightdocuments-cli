@@ -150,6 +150,11 @@ module RightDocuments
     if count = matter["document_count"]?.try(&.as_i?)
       output.puts "documents: #{count}"
     end
+    deadlines = matter["deadlines"]?.try(&.as_a?) || [] of JSON::Any
+    unless deadlines.empty?
+      output.puts "deadlines:"
+      deadlines.each { |d| output.puts "  - #{MatterText.s(d["due_on"]?)} #{MatterText.s(d["label"]?)}: #{MatterText.s(d["name"]?)}" }
+    end
     parties = matter["parties"]?.try(&.as_a?) || [] of JSON::Any
     output.puts "parties:#{parties.empty? ? " none" : ""}"
     parties.each { |party| output.puts "  - #{MatterText.s(party["name"]?)} (#{MatterText.humanize(MatterText.s(party["role"]?))})" }

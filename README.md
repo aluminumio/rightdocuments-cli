@@ -28,6 +28,9 @@ Or download a binary from [Releases](https://github.com/aluminumio/rightdocument
     rightdocuments parties 0004-001 [-j]
     rightdocuments parties:add 0004-001 --name NAME --role adverse_party [--address "Line 1\nLine 2"] [-j]
     rightdocuments parties:remove 0004-001 PARTY_ID
+    rightdocuments deadlines 0004-001 [-j]
+    rightdocuments deadlines:add 0004-001 --name "Tavern responds" --due 2026-09-16 [--notes NOTES] [-j]
+    rightdocuments deadlines:done 0004-001 DEADLINE_ID     # also deadlines:reopen, deadlines:remove
     rightdocuments skills                                 # print agent/LLM usage guide
     rightdocuments logout
 
