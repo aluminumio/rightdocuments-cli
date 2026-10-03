@@ -14,7 +14,7 @@ jobs:
             target: darwin-arm64
           - os: ubuntu-latest    # uses container
             target: linux-x86_64
-            container: crystallang/crystal:1.13
+            container: crystallang/crystal:1.21
     runs-on: ${{ matrix.os }}
     container: ${{ matrix.container }}
     steps:
