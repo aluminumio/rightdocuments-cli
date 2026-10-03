@@ -138,3 +138,13 @@ Channels: `email`, `mail`, `courier`, `hand`, `other`. Mail and courier need an 
 
 `matters:info` (and the JSON's `conflicts` array) lists adverse parties or opposing counsel whose names match one of the organization's clients or companies, or a party linked to one of our companies. It is a name match only; tell the user and let a lawyer decide.
 
+## Mailing a letter
+
+`documents:mail` mails a document (on a matter) to one of the matter's parties as a printed letter: USPS First Class, certified with return receipt by default. **It sends a real, paid letter.** Never run it without the user's explicit go-ahead for that specific letter; the CLI refuses without `--yes`. The organization's the mail service return address must be set in the web app (Edit Organization → Mail).
+
+```sh
+rightdocuments documents:mail DOCUMENT_ID --party PARTY_ID --service certified_return_receipt --yes -j
+rightdocuments deliveries:sync DOCUMENT_ID DELIVERY_ID -j   # pull USPS tracking (also runs daily)
+rightdocuments deliveries DOCUMENT_ID                       # shows tracking number and last event
+```
+

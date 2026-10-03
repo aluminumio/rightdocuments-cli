@@ -8,6 +8,20 @@ module RightDocuments
       via = [MatterText.s(delivery["channel"]?), MatterText.s(delivery["provider"]?)].reject(&.empty?).join("/")
       "#{MatterText.s(delivery["id"]?)}\t#{when_sent}\t#{via}\t#{MatterText.s(delivery["status"]?)}\t#{recipient}"
     end
+
+    # Tracking lines under a delivery, when the postal service has reported any.
+    def self.tracking(delivery : JSON::Any) : Array(String)
+      lines = [] of String
+      if number = delivery["tracking_number"]?.try(&.as_s?)
+        lines << "  tracking: #{number}#{(expected = delivery["expected_delivery_on"]?.try(&.as_s?)) ? " (expected #{expected})" : ""}"
+      end
+      events = delivery["tracking_events"]?.try(&.as_a?) || [] of JSON::Any
+      if last = events.last?
+        location = last["location"]?.try(&.as_s?)
+        lines << "  last event: #{MatterText.s(last["name"]?)}#{location ? " (#{location})" : ""} #{MatterText.s(last["time"]?)[0, 10]}"
+      end
+      lines
+    end
   end
 
   @[ACONA::AsCommand("deliveries", description: "List how a document was sent")]
@@ -28,7 +42,10 @@ module RightDocuments
 
       deliveries = result["deliveries"]?.try(&.as_a?) || [] of JSON::Any
       output.puts "no deliveries" if deliveries.empty?
-      deliveries.each { |delivery| output.puts DeliveryText.line(delivery) }
+      deliveries.each do |delivery|
+        output.puts DeliveryText.line(delivery)
+        DeliveryText.tracking(delivery).each { |line| output.puts line }
+      end
       ACON::Command::Status::SUCCESS
     rescue ex
       output.puts "deliveries failed: #{ex.message}"
@@ -136,6 +153,78 @@ module RightDocuments
       ACON::Command::Status::SUCCESS
     rescue ex
       output.puts "deliveries:update failed: #{ex.message}"
+      ACON::Command::Status::FAILURE
+    end
+  end
+
+  @[ACONA::AsCommand("deliveries:sync", description: "Refresh the postal tracking of a mailed letter")]
+  class DeliveriesSyncCommand < ACON::Command
+    include JSONOption
+
+    protected def configure : Nil
+      DeliveriesSyncCommand.add_json_option(self)
+      self
+        .argument("document", :required, "document ID")
+        .argument("delivery", :required, "delivery ID (a letter mailed by the app)")
+    end
+
+    protected def execute(input : ACON::Input::Interface, output : ACON::Output::Interface) : ACON::Command::Status
+      document = Api.path_segment(input.argument("document").to_s)
+      delivery = Api.path_segment(input.argument("delivery").to_s)
+      result = Api.request("POST", "/api/v1/documents/#{document}/deliveries/#{delivery}/sync")
+      if json?(input)
+        output.puts result.to_pretty_json
+      else
+        output.puts DeliveryText.line(result["delivery"])
+        DeliveryText.tracking(result["delivery"]).each { |line| output.puts line }
+      end
+      ACON::Command::Status::SUCCESS
+    rescue ex
+      output.puts "deliveries:sync failed: #{ex.message}"
+      ACON::Command::Status::FAILURE
+    end
+  end
+
+  @[ACONA::AsCommand("documents:mail", description: "Mail a document to a matter party as a letter (costs postage)")]
+  class DocumentsMailCommand < ACON::Command
+    include JSONOption
+
+    protected def configure : Nil
+      DocumentsMailCommand.add_json_option(self)
+      self
+        .argument("document", :required, "document ID (must be on a matter)")
+        .option("party", nil, ACON::Input::Option::Value[:required], "party ID of the document's matter")
+        .option("service", nil, ACON::Input::Option::Value[:required],
+          "certified, certified_return_receipt, or none (default: certified_return_receipt)")
+        .option("yes", nil, ACON::Input::Option::Value[:none], "confirm: send a real, paid letter")
+    end
+
+    protected def execute(input : ACON::Input::Interface, output : ACON::Output::Interface) : ACON::Command::Status
+      party = input.option("party").to_s
+      if party.empty?
+        output.puts "error: --party is required (see `rightdocuments parties MATTER`)"
+        return ACON::Command::Status::FAILURE
+      end
+      unless input.option("yes", Bool)
+        output.puts "This mails a real letter. Postage is charged and the letter cannot be recalled after a few minutes."
+        output.puts "Run again with --yes to send."
+        return ACON::Command::Status::FAILURE
+      end
+
+      service = input.option("service").to_s.presence || "certified_return_receipt"
+      service = "" if service == "none"
+      body = {party_id: party, extra_service: service, confirm: true}
+      result = Api.post("/api/v1/documents/#{Api.path_segment(input.argument("document").to_s)}/deliveries/mail", body)
+      if json?(input)
+        output.puts result.to_pretty_json
+      else
+        delivery = result["delivery"]
+        output.puts DeliveryText.line(delivery)
+        output.puts "  letter: #{MatterText.s(delivery["provider_id"]?)}"
+      end
+      ACON::Command::Status::SUCCESS
+    rescue ex
+      output.puts "documents:mail failed: #{ex.message}"
       ACON::Command::Status::FAILURE
     end
   end

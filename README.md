@@ -34,6 +34,8 @@ Or download a binary from [Releases](https://github.com/aluminumio/rightdocument
     rightdocuments deliveries DOCUMENT_ID [-j]
     rightdocuments deliveries:add DOCUMENT_ID --channel mail --sent 2026-09-02 --party PARTY_ID [-j]
     rightdocuments deliveries:update DOCUMENT_ID DELIVERY_ID --status delivered --delivered 2026-09-08 [-j]
+    rightdocuments deliveries:sync DOCUMENT_ID DELIVERY_ID [-j]         # refresh a the mail service letter's tracking
+    rightdocuments documents:mail DOCUMENT_ID --party PARTY_ID [--service certified] --yes   # real letter; postage is charged
     rightdocuments skills                                 # print agent/LLM usage guide
     rightdocuments logout
 
