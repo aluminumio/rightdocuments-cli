@@ -9,7 +9,7 @@ module RightDocuments
       "#{MatterText.s(delivery["id"]?)}\t#{when_sent}\t#{via}\t#{MatterText.s(delivery["status"]?)}\t#{recipient}"
     end
 
-    # Tracking lines under a delivery, when Lob has reported any.
+    # Tracking lines under a delivery, when the postal service has reported any.
     def self.tracking(delivery : JSON::Any) : Array(String)
       lines = [] of String
       if number = delivery["tracking_number"]?.try(&.as_s?)
@@ -75,8 +75,8 @@ module RightDocuments
       self
         .argument("document", :required, "document ID")
         .option("channel", nil, ACON::Input::Option::Value[:required], "email, mail, courier, hand or other")
-        .option("provider", nil, ACON::Input::Option::Value[:required], "manual, smtp, lob, dhl, fedex or other")
-        .option("provider-id", nil, ACON::Input::Option::Value[:required], "the provider's ID (e.g. a Lob letter ID)")
+        .option("provider", nil, ACON::Input::Option::Value[:required], "manual, smtp, dhl, fedex or other")
+        .option("provider-id", nil, ACON::Input::Option::Value[:required], "the carrier's ID or tracking number")
         .option("tracking", nil, ACON::Input::Option::Value[:required], "tracking URL")
         .option("status", nil, ACON::Input::Option::Value[:required], "queued, sent, delivered, failed or unknown (default: sent)")
         .option("sent", nil, ACON::Input::Option::Value[:required], "when it was sent, e.g. 2026-09-02 (default: now)")
@@ -157,7 +157,7 @@ module RightDocuments
     end
   end
 
-  @[ACONA::AsCommand("deliveries:sync", description: "Refresh a Lob letter's tracking")]
+  @[ACONA::AsCommand("deliveries:sync", description: "Refresh a mailed letter's tracking")]
   class DeliveriesSyncCommand < ACON::Command
     include JSONOption
 
@@ -165,7 +165,7 @@ module RightDocuments
       DeliveriesSyncCommand.add_json_option(self)
       self
         .argument("document", :required, "document ID")
-        .argument("delivery", :required, "delivery ID (a Lob letter)")
+        .argument("delivery", :required, "delivery ID (a letter mailed by the app)")
     end
 
     protected def execute(input : ACON::Input::Interface, output : ACON::Output::Interface) : ACON::Command::Status
@@ -185,7 +185,7 @@ module RightDocuments
     end
   end
 
-  @[ACONA::AsCommand("documents:mail", description: "Mail a document to a matter party through Lob (costs money)")]
+  @[ACONA::AsCommand("documents:mail", description: "Mail a document to a matter party as a letter (postage is charged)")]
   class DocumentsMailCommand < ACON::Command
     include JSONOption
 
@@ -206,7 +206,7 @@ module RightDocuments
         return ACON::Command::Status::FAILURE
       end
       unless input.option("yes", Bool)
-        output.puts "This mails a real letter through Lob. It costs money and cannot be undone after Lob's cancel window."
+        output.puts "This mails a real letter. Postage is charged and the letter cannot be recalled after a few minutes."
         output.puts "Run again with --yes to send."
         return ACON::Command::Status::FAILURE
       end
@@ -220,7 +220,9 @@ module RightDocuments
       else
         delivery = result["delivery"]
         output.puts DeliveryText.line(delivery)
-        output.puts "  Lob letter: #{MatterText.s(delivery["provider_id"]?)}"
+        if expected = delivery["expected_delivery_on"]?.try(&.as_s?)
+          output.puts "  expected delivery: #{expected}"
+        end
       end
       ACON::Command::Status::SUCCESS
     rescue ex

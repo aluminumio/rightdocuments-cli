@@ -125,7 +125,7 @@ rightdocuments deadlines:remove 0004-001 DEADLINE_ID
 Record each send so the matter has a paper trail. `--party` takes a party ID of the document's matter (see `parties MATTER -j`) and fills the recipient's name, address and email.
 
 ```sh
-rightdocuments deliveries:add DOCUMENT_ID --channel mail --provider lob --sent 2026-09-02 \
+rightdocuments deliveries:add DOCUMENT_ID --channel mail --sent 2026-09-02 \
   --party PARTY_ID --notes "USPS First Class, certified, return receipt" -j
 rightdocuments deliveries:add DOCUMENT_ID --channel email --to "Gary" --email gary@example.com -j
 rightdocuments deliveries DOCUMENT_ID -j
@@ -138,13 +138,13 @@ Channels: `email`, `mail`, `courier`, `hand`, `other`. Mail and courier need an 
 
 `matters:info` (and the JSON's `conflicts` array) lists adverse parties or opposing counsel whose names match one of the organization's clients or companies, or a party linked to one of our companies. It is a name match only; tell the user and let a lawyer decide.
 
-## Mailing through Lob
+## Mailing a letter
 
-`documents:mail` mails a document (on a matter) to one of the matter's parties through Lob: USPS First Class, certified with return receipt by default. **It sends a real, paid letter.** Never run it without the user's explicit go-ahead for that specific letter; the CLI refuses without `--yes`. The organization's Lob return address must be set in the web app (Edit Organization → Mail).
+`documents:mail` mails a document (on a matter) to one of the matter's parties as a printed letter: USPS First Class, certified with return receipt by default. **It sends a real, paid letter.** Never run it without the user's explicit go-ahead for that specific letter; the CLI refuses without `--yes`. The organization's mailing address must be set in the web app (Edit Organization → Mailing address).
 
 ```sh
 rightdocuments documents:mail DOCUMENT_ID --party PARTY_ID --service certified_return_receipt --yes -j
-rightdocuments deliveries:sync DOCUMENT_ID DELIVERY_ID -j   # pull USPS tracking from Lob (also runs daily)
+rightdocuments deliveries:sync DOCUMENT_ID DELIVERY_ID -j   # pull USPS tracking (also runs daily)
 rightdocuments deliveries DOCUMENT_ID                       # shows tracking number and last event
 ```
 

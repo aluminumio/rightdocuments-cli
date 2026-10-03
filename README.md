@@ -32,10 +32,10 @@ Or download a binary from [Releases](https://github.com/aluminumio/rightdocument
     rightdocuments deadlines:add 0004-001 --name "Tavern responds" --due 2026-09-16 [--notes NOTES] [-j]
     rightdocuments deadlines:done 0004-001 DEADLINE_ID     # also deadlines:reopen, deadlines:remove
     rightdocuments deliveries DOCUMENT_ID [-j]
-    rightdocuments deliveries:add DOCUMENT_ID --channel mail --provider lob --sent 2026-09-02 --party PARTY_ID [-j]
+    rightdocuments deliveries:add DOCUMENT_ID --channel mail --sent 2026-09-02 --party PARTY_ID [-j]
     rightdocuments deliveries:update DOCUMENT_ID DELIVERY_ID --status delivered --delivered 2026-09-08 [-j]
-    rightdocuments deliveries:sync DOCUMENT_ID DELIVERY_ID [-j]         # refresh a Lob letter's tracking
-    rightdocuments documents:mail DOCUMENT_ID --party PARTY_ID [--service certified] --yes   # paid Lob letter
+    rightdocuments deliveries:sync DOCUMENT_ID DELIVERY_ID [-j]         # refresh a mailed letter's tracking
+    rightdocuments documents:mail DOCUMENT_ID --party PARTY_ID [--service certified] --yes   # real letter; postage is charged
     rightdocuments skills                                 # print agent/LLM usage guide
     rightdocuments logout
 
