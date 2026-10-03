@@ -150,6 +150,11 @@ module RightDocuments
     if count = matter["document_count"]?.try(&.as_i?)
       output.puts "documents: #{count}"
     end
+    conflicts = matter["conflicts"]?.try(&.as_a?) || [] of JSON::Any
+    unless conflicts.empty?
+      output.puts "POSSIBLE CONFLICTS (names match; a lawyer must review):".colorize(:yellow)
+      conflicts.each { |c| output.puts "  ! #{MatterText.s(c["party"]?)}: #{MatterText.s(c["reason"]?)}".colorize(:yellow) }
+    end
     deadlines = matter["deadlines"]?.try(&.as_a?) || [] of JSON::Any
     unless deadlines.empty?
       output.puts "deadlines:"
