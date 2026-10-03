@@ -107,3 +107,16 @@ rightdocuments matters:info 0004-001 -j                     # settings, parties,
 
 Deleting is two steps, as in the web app. `documents:void ID` hides the document from lists and checklists (the creator or an admin can do it). `documents:restore ID` undoes it. `documents:delete ID` removes it permanently, only for admins and only after it is voided; otherwise the server answers 409 "Void the document first".
 
+## Deadlines on a matter
+
+A deadline is a date something must happen by: a response window, a filing date, the statute of limitations. A person marks it done; it is not satisfied by a document. Overdue and soon-due deadlines (14 days) of open matters appear under "Needs me" on the web Home page.
+
+```sh
+rightdocuments deadlines:add 0004-001 --name "Tavern names a representative" --due 2026-09-16 \
+  --notes "14 days from the notice of Sep 2" -j
+rightdocuments deadlines 0004-001 -j          # by due date, with state: overdue, due_soon, upcoming, done
+rightdocuments deadlines:done 0004-001 DEADLINE_ID
+rightdocuments deadlines:reopen 0004-001 DEADLINE_ID
+rightdocuments deadlines:remove 0004-001 DEADLINE_ID
+```
+
