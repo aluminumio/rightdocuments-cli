@@ -16,6 +16,15 @@ Or download a binary from [Releases](https://github.com/aluminumio/rightdocument
     rightdocuments entities:create --name NAME --type llc --state DE [-j]
     rightdocuments documents ENTITY_ID [-j]
     rightdocuments import path/to/file.pdf --entity ENTITY_ID [-j]
+    rightdocuments import path/to/file.pdf --matter 0004-001 [--name NAME] [-j]
+    rightdocuments clients [-j]                           # client numbers
+    rightdocuments matters [--status open|closed] [--client 4] [-j]
+    rightdocuments matters:info 0004-001 [-j]
+    rightdocuments matters:create --client 4 --name "Malone v. Olde Towne Tavern" [-j]
+    rightdocuments matters:update 0004-001 --type pre_litigation --role claimant [-j]
+    rightdocuments parties 0004-001 [-j]
+    rightdocuments parties:add 0004-001 --name NAME --role adverse_party [--address "Line 1\nLine 2"] [-j]
+    rightdocuments parties:remove 0004-001 PARTY_ID
     rightdocuments skills                                 # print agent/LLM usage guide
     rightdocuments logout
 

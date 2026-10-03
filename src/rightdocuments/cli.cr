@@ -88,6 +88,14 @@ module RightDocuments
       app.add DocumentsDeleteCommand.new
       app.add DocumentsUpdateCommand.new
       app.add ImportCommand.new
+      app.add ClientsCommand.new
+      app.add MattersCommand.new
+      app.add MattersInfoCommand.new
+      app.add MattersCreateCommand.new
+      app.add MattersUpdateCommand.new
+      app.add PartiesCommand.new
+      app.add PartiesAddCommand.new
+      app.add PartiesRemoveCommand.new
       app.add CatalogCommand.new
       app.add SkillsCommand.new
       app.run(ACON::Input::ARGV.new(argv))
@@ -875,6 +883,7 @@ module RightDocuments
       self
         .argument("path", :required, "path to the PDF file")
         .option("entity", "e", ACON::Input::Option::Value[:required], "entity name or ID")
+        .option("matter", "m", ACON::Input::Option::Value[:required], "matter number (e.g. 0004-001) or ID; files the PDF under the matter")
         .option("tags", "t", ACON::Input::Option::Value[:required], "comma-separated tags to apply")
         .option("name", nil, ACON::Input::Option::Value[:required], "display name for the document")
     end
@@ -882,9 +891,10 @@ module RightDocuments
     protected def execute(input : ACON::Input::Interface, output : ACON::Output::Interface) : ACON::Command::Status
       path = input.argument("path").to_s
       raw_entity = input.option("entity").to_s
+      raw_matter = input.option("matter").to_s
 
-      if raw_entity.empty?
-        output.puts "error: --entity is required (name or ID)"
+      if raw_entity.empty? == raw_matter.empty?
+        output.puts "error: give exactly one of --entity (name or ID) or --matter (number or ID)"
         return ACON::Command::Status::FAILURE
       end
       unless File.exists?(path)
@@ -892,12 +902,16 @@ module RightDocuments
         return ACON::Command::Status::FAILURE
       end
 
-      entity_id = RightDocuments.resolve_entity_id(raw_entity)
-
       # The swagger doesn't yet describe the multipart body for import, so the
-      # SDK's import method takes only entity_id. Drop to direct HTTP until
+      # SDK's import method takes only the parent ID. Drop to direct HTTP until
       # the swagger is fleshed out.
-      uri = URI.parse("#{RightDocuments::BASE_URL}/api/v1/entities/#{URI.encode_path(entity_id)}/documents/import")
+      import_path = if raw_matter.empty?
+                      entity_id = RightDocuments.resolve_entity_id(raw_entity)
+                      "/api/v1/entities/#{URI.encode_path(entity_id)}/documents/import"
+                    else
+                      "/api/v1/matters/#{URI.encode_path_segment(raw_matter)}/documents/import"
+                    end
+      uri = URI.parse("#{RightDocuments::BASE_URL}#{import_path}")
       io = IO::Memory.new
       builder = HTTP::FormData::Builder.new(io)
       File.open(path) do |file|
