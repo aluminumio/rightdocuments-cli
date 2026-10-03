@@ -87,6 +87,8 @@ module RightDocuments
       app.add DocumentsCreateCommand.new
       app.add DocumentsDeleteCommand.new
       app.add DocumentsUpdateCommand.new
+      app.add DocumentsVoidCommand.new
+      app.add DocumentsRestoreCommand.new
       app.add ImportCommand.new
       app.add ClientsCommand.new
       app.add MattersCommand.new
@@ -789,7 +791,7 @@ module RightDocuments
     end
   end
 
-  @[ACONA::AsCommand("documents:delete", description: "Delete a document by ID")]
+  @[ACONA::AsCommand("documents:delete", description: "Permanently delete a voided document (admins only)")]
   class DocumentsDeleteCommand < ACON::Command
     protected def configure : Nil
       self.argument("id", :required, "document ID to delete")
@@ -802,15 +804,10 @@ module RightDocuments
         return ACON::Command::Status::FAILURE
       end
 
-      RightDocuments.sdk_config
-      _, status, _ = RightDocuments::DocumentsApi.new.api_v1_documents_id_delete_with_http_info(id)
-      if status == 204
-        output.puts "deleted #{id}"
-        ACON::Command::Status::SUCCESS
-      else
-        output.puts "documents:delete failed: HTTP #{status}"
-        ACON::Command::Status::FAILURE
-      end
+      # Direct HTTP so the server's reason (e.g. "Void the document first") reaches the user.
+      Api.delete("/api/v1/documents/#{Api.path_segment(id)}")
+      output.puts "deleted #{id}"
+      ACON::Command::Status::SUCCESS
     rescue ex
       output.puts "documents:delete failed: #{ex.message}"
       ACON::Command::Status::FAILURE
