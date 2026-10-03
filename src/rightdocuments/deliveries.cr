@@ -76,7 +76,7 @@ module RightDocuments
         .argument("document", :required, "document ID")
         .option("channel", nil, ACON::Input::Option::Value[:required], "email, mail, courier, hand or other")
         .option("provider", nil, ACON::Input::Option::Value[:required], "manual, smtp, dhl, fedex or other")
-        .option("provider-id", nil, ACON::Input::Option::Value[:required], "the provider's ID (e.g. a tracking number)")
+        .option("provider-id", nil, ACON::Input::Option::Value[:required], "the carrier's ID or tracking number")
         .option("tracking", nil, ACON::Input::Option::Value[:required], "tracking URL")
         .option("status", nil, ACON::Input::Option::Value[:required], "queued, sent, delivered, failed or unknown (default: sent)")
         .option("sent", nil, ACON::Input::Option::Value[:required], "when it was sent, e.g. 2026-09-02 (default: now)")
@@ -157,7 +157,7 @@ module RightDocuments
     end
   end
 
-  @[ACONA::AsCommand("deliveries:sync", description: "Refresh the postal tracking of a mailed letter")]
+  @[ACONA::AsCommand("deliveries:sync", description: "Refresh a mailed letter's tracking")]
   class DeliveriesSyncCommand < ACON::Command
     include JSONOption
 
@@ -185,7 +185,7 @@ module RightDocuments
     end
   end
 
-  @[ACONA::AsCommand("documents:mail", description: "Mail a document to a matter party as a letter (costs postage)")]
+  @[ACONA::AsCommand("documents:mail", description: "Mail a document to a matter party as a letter (postage is charged)")]
   class DocumentsMailCommand < ACON::Command
     include JSONOption
 
@@ -220,7 +220,9 @@ module RightDocuments
       else
         delivery = result["delivery"]
         output.puts DeliveryText.line(delivery)
-        output.puts "  letter: #{MatterText.s(delivery["provider_id"]?)}"
+        if expected = delivery["expected_delivery_on"]?.try(&.as_s?)
+          output.puts "  expected delivery: #{expected}"
+        end
       end
       ACON::Command::Status::SUCCESS
     rescue ex
