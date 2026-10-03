@@ -17,6 +17,9 @@ Or download a binary from [Releases](https://github.com/aluminumio/rightdocument
     rightdocuments documents ENTITY_ID [-j]
     rightdocuments import path/to/file.pdf --entity ENTITY_ID [-j]
     rightdocuments import path/to/file.pdf --matter 0004-001 [--name NAME] [-j]
+    rightdocuments documents:void DOCUMENT_ID [-j]        # hide; restore or delete later
+    rightdocuments documents:restore DOCUMENT_ID [-j]
+    rightdocuments documents:delete DOCUMENT_ID           # admins, voided documents only
     rightdocuments clients [-j]                           # client numbers
     rightdocuments matters [--status open|closed] [--client 4] [-j]
     rightdocuments matters:info 0004-001 [-j]

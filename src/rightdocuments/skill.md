@@ -103,3 +103,7 @@ rightdocuments matters:info 0004-001 -j                     # settings, parties,
 - Party `--role`: `adverse_party` (default), `opposing_counsel`, `co_counsel`, `court`, `witness`, `other`. Use `--entity` when the party is one of the organization's companies.
 - `import --matter` files the PDF under the matter; the document belongs to the matter's client. Give exactly one of `--entity` or `--matter`.
 
+## Removing a document: void first
+
+Deleting is two steps, as in the web app. `documents:void ID` hides the document from lists and checklists (the creator or an admin can do it). `documents:restore ID` undoes it. `documents:delete ID` removes it permanently, only for admins and only after it is voided; otherwise the server answers 409 "Void the document first".
+
