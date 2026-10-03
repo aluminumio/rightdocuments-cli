@@ -91,6 +91,10 @@ module RightDocuments
       app.add DocumentsRestoreCommand.new
       app.add ImportCommand.new
       app.add ClientsCommand.new
+      app.add ClientsInfoCommand.new
+      app.add ClientsCreateCommand.new
+      app.add ClientsUpdateCommand.new
+      app.add ClientsDeleteCommand.new
       app.add MattersCommand.new
       app.add MattersInfoCommand.new
       app.add MattersCreateCommand.new

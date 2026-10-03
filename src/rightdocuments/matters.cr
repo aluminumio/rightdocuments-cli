@@ -58,39 +58,6 @@ module RightDocuments
     end
   end
 
-  @[ACONA::AsCommand("clients", description: "List clients with their numbers")]
-  class ClientsCommand < ACON::Command
-    include JSONOption
-
-    protected def configure : Nil
-      ClientsCommand.add_json_option(self)
-    end
-
-    protected def execute(input : ACON::Input::Interface, output : ACON::Output::Interface) : ACON::Command::Status
-      result = Api.get("/api/v1/clients")
-      if json?(input)
-        output.puts result.to_pretty_json
-        return ACON::Command::Status::SUCCESS
-      end
-
-      clients = result["clients"]?.try(&.as_a?) || [] of JSON::Any
-      output.puts ""
-      output.puts "  #{"No.".ljust(6)}#{"Name".ljust(36)}#{"Type".ljust(12)}Status"
-      output.puts "  #{"─" * 64}"
-      clients.each do |client|
-        output.puts "  #{MatterText.s(client["number"]?).ljust(6)}#{MatterText.s(client["name"]?).ljust(36)}" \
-                    "#{MatterText.s(client["client_type"]?).ljust(12)}#{MatterText.s(client["status"]?)}"
-      end
-      output.puts ""
-      output.puts "  #{clients.size} clients"
-      output.puts ""
-      ACON::Command::Status::SUCCESS
-    rescue ex
-      output.puts "clients failed: #{ex.message}"
-      ACON::Command::Status::FAILURE
-    end
-  end
-
   @[ACONA::AsCommand("matters", description: "List matters (open by default)")]
   class MattersCommand < ACON::Command
     include JSONOption

@@ -83,6 +83,21 @@ Lists every document on the entity. Without `-j` you get a tab-separated `id<TAB
 - **Errors are non-zero exit code + a single line** like `entities:create failed: HTTP 422 — {"error":...}`. Parse the JSON body after the em-dash for actionable detail.
 - **Re-authenticate when 401**: a stale or rotated token surfaces as `HTTP 401`. Run `rightdocuments login` and retry.
 
+## Clients
+
+A client has a number (`0004`) that the server assigns on creation. Commands accept the number (`4` or `0004`), the exact name, or the UUID. New clients are `prospective`.
+
+```sh
+rightdocuments clients -j                                   # all clients; filter with --status, --type
+rightdocuments clients:create --name "Cheers, Inc." --type business \
+  --email sam@example.com --entity "Cheers, Inc." -j        # --entity links one of our companies
+rightdocuments clients:info 4 -j                            # contact fields, company, counts
+rightdocuments clients:update 4 --status engaged -j         # organization admins only
+rightdocuments clients:delete 4 --yes                       # organization admins; fails if it has matters
+```
+
+The engagement date (`engaged_at`) cannot be set here: an executed engagement letter sets it.
+
 ## Matters: client-matter work (letters, demands, lawsuits)
 
 A matter is one piece of work for a client. Its number is `CLIENT-SEQUENCE`, e.g. `0004-001` (client 4, its first matter). The server assigns it on creation and it never changes. Commands accept the number (`0004-001` or `4-1`) or the UUID.
