@@ -8,7 +8,7 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
-    container: crystallang/crystal:1.13
+    container: crystallang/crystal:1.21
     steps:
       - uses: actions/checkout@v6
       - name: Install dependencies
