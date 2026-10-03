@@ -120,3 +120,17 @@ rightdocuments deadlines:reopen 0004-001 DEADLINE_ID
 rightdocuments deadlines:remove 0004-001 DEADLINE_ID
 ```
 
+## Logging how a document was sent
+
+Record each send so the matter has a paper trail. `--party` takes a party ID of the document's matter (see `parties MATTER -j`) and fills the recipient's name, address and email.
+
+```sh
+rightdocuments deliveries:add DOCUMENT_ID --channel mail --provider lob --sent 2026-09-02 \
+  --party PARTY_ID --notes "USPS First Class, certified, return receipt" -j
+rightdocuments deliveries:add DOCUMENT_ID --channel email --to "Gary" --email gary@example.com -j
+rightdocuments deliveries DOCUMENT_ID -j
+rightdocuments deliveries:update DOCUMENT_ID DELIVERY_ID --status delivered --delivered 2026-09-08
+```
+
+Channels: `email`, `mail`, `courier`, `hand`, `other`. Mail and courier need an address (or `--party`); email needs `--email`. Logging is refused (409) on a voided document.
+

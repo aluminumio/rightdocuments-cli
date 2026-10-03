@@ -103,6 +103,9 @@ module RightDocuments
       app.add DeadlinesDoneCommand.new
       app.add DeadlinesReopenCommand.new
       app.add DeadlinesRemoveCommand.new
+      app.add DeliveriesCommand.new
+      app.add DeliveriesAddCommand.new
+      app.add DeliveriesUpdateCommand.new
       app.add CatalogCommand.new
       app.add SkillsCommand.new
       app.run(ACON::Input::ARGV.new(argv))
