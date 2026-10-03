@@ -134,3 +134,7 @@ rightdocuments deliveries:update DOCUMENT_ID DELIVERY_ID --status delivered --de
 
 Channels: `email`, `mail`, `courier`, `hand`, `other`. Mail and courier need an address (or `--party`); email needs `--email`. Logging is refused (409) on a voided document.
 
+## Possible conflicts of interest
+
+`matters:info` (and the JSON's `conflicts` array) lists adverse parties or opposing counsel whose names match one of the organization's clients or companies, or a party linked to one of our companies. It is a name match only; tell the user and let a lawyer decide.
+
