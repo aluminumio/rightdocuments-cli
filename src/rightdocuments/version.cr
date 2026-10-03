@@ -1,3 +1,3 @@
 module RightDocuments
-  CLI_VERSION = "0.10.1"
+  CLI_VERSION = "0.11.0"
 end

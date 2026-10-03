@@ -20,7 +20,11 @@ Or download a binary from [Releases](https://github.com/aluminumio/rightdocument
     rightdocuments documents:void DOCUMENT_ID [-j]        # hide; restore or delete later
     rightdocuments documents:restore DOCUMENT_ID [-j]
     rightdocuments documents:delete DOCUMENT_ID           # admins, voided documents only
-    rightdocuments clients [-j]                           # client numbers
+    rightdocuments clients [--status engaged] [--type business] [-j]   # client numbers
+    rightdocuments clients:info 4 [-j]                    # number, exact name, or ID
+    rightdocuments clients:create --name NAME --type business --email EMAIL [--entity COMPANY] [-j]
+    rightdocuments clients:update 4 --status engaged --notes NOTES [-j]   # organization admins
+    rightdocuments clients:delete 4 --yes                 # organization admins; clients without matters
     rightdocuments matters [--status open|closed] [--client 4] [-j]
     rightdocuments matters:info 0004-001 [-j]
     rightdocuments matters:create --client 4 --name "Malone v. Olde Towne Tavern" [-j]
