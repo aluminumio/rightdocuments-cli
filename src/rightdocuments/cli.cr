@@ -142,6 +142,8 @@ module RightDocuments
       app.add DocumentsCreateCommand.new
       app.add DocumentsDeleteCommand.new
       app.add DocumentsUpdateCommand.new
+      app.add DocumentsInfoCommand.new
+      app.add DocumentsDownloadCommand.new
       app.add DocumentsVoidCommand.new
       app.add DocumentsRestoreCommand.new
       app.add ImportCommand.new
