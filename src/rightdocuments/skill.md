@@ -59,7 +59,7 @@ Each import returns the new document's metadata (id, name, urls). Repeat for eve
 rightdocuments documents "$ENTITY_ID" -j | jq '.documents[] | {id, name}'
 ```
 
-Lists every document on the entity. Without `-j` you get a tab-separated `id<TAB>name` list, easier on the eye.
+Lists every document on the entity. Without `-j` you get a tab-separated `id<TAB>name<TAB>status` list, easier on the eye.
 
 ## Command reference
 
@@ -72,6 +72,7 @@ Lists every document on the entity. Without `-j` you get a tab-separated `id<TAB
 | `entities:info <entity_id>` | Show one entity by ID | `-j` |
 | `entities:create` | Create an entity | `--name`, `--type`, `--state`, `--ein`, `--address`, `--phone`, `-j` |
 | `documents <entity_id>` | List documents on an entity | `-j` |
+| `documents --matter <n>` / `--client <n>` | List documents of a matter or a client | `-j` |
 | `import <path> --entity <id>` | Upload a PDF as an executed document | `-j` |
 | `catalog` | Enumerate server-defined choices (entity types, states, statuses) | `-j` |
 | `skills` | Print this guide (for agents/LLMs) | — |
@@ -106,7 +107,7 @@ A client has a number (`0004`) that the server assigns on creation. Commands acc
 rightdocuments clients -j                                   # all clients; filter with --status, --type
 rightdocuments clients:create --name "Cheers, Inc." --type business \
   --email sam@example.com --entity "Cheers, Inc." -j        # --entity links one of our companies
-rightdocuments clients:info 4 -j                            # contact fields, company, counts
+rightdocuments clients:info 4 -j                            # contact fields, company, counts, documents
 rightdocuments clients:update 4 --status engaged -j         # organization admins only
 rightdocuments clients:delete 4 --yes                       # organization admins; fails if it has matters
 ```
@@ -125,13 +126,15 @@ rightdocuments matters:update 0004-001 --type pre_litigation --role claimant \
 rightdocuments parties:add 0004-001 --name "Gary's Olde Towne Tavern" \
   --role adverse_party --address "123 Main St\nBoston, MA" -j
 rightdocuments import notice.pdf --matter 0004-001 --name "Notice of dispute" -j
-rightdocuments matters:info 0004-001 -j                     # settings, parties, document count
+rightdocuments matters:info 0004-001 -j                     # settings, parties, documents
+rightdocuments documents --matter 0004-001 -j              # full document records of the matter
 ```
 
 - New matters open with status `open`, opened today, and no type. Set the rest with `matters:update`.
 - `--type`: `advisory`, `pre_litigation`, `litigation`. `--role`: `plaintiff`, `defendant`, `claimant`, `respondent`, `advisor`. `--status`: `open`, `closed`.
 - Party `--role`: `adverse_party` (default), `opposing_counsel`, `co_counsel`, `court`, `witness`, `other`. Use `--entity` when the party is one of the organization's companies.
 - `import --matter` files the PDF under the matter; the document belongs to the matter's client. Give exactly one of `--entity` or `--matter`.
+- To find a document ID (for `deliveries:add`, `documents:info`, `documents:mail`), use `matters:info 0004-001 -j | jq '.matter.documents'` (`id`, `name`, `status`) or `documents --matter 0004-001 -j`. `clients:info 4 -j` and `documents --client 4 -j` cover all of a client's documents, under any matter or none. Voided documents are not listed.
 
 ## Removing a document: void first
 

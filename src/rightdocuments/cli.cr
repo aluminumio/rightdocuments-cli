@@ -865,33 +865,42 @@ module RightDocuments
     end
   end
 
-  @[ACONA::AsCommand("documents:list|documents", description: "List documents for an entity")]
+  @[ACONA::AsCommand("documents:list|documents", description: "List the documents of an entity, a matter (--matter) or a client (--client)")]
   class DocumentsCommand < ACON::Command
     include JSONOption
 
     protected def configure : Nil
       DocumentsCommand.add_json_option(self)
-      self.argument("entity", :required, "entity name or ID")
+      self
+        .argument("entity", :optional, "entity name or ID")
+        .option("matter", "m", ACON::Input::Option::Value[:required], "matter number (e.g. 0004-001) or ID")
+        .option("client", "c", ACON::Input::Option::Value[:required], "client number (4 or 0004), exact name, or ID; all of its documents")
     end
 
     protected def execute(input : ACON::Input::Interface, output : ACON::Output::Interface) : ACON::Command::Status
-      entity_id = RightDocuments.resolve_entity_id(input.argument("entity").to_s)
-      # Swagger doesn't describe the response schema, so call HTTP directly.
-      uri = URI.parse("#{RightDocuments::BASE_URL}/api/v1/entities/#{URI.encode_path(entity_id)}/documents")
-      headers = HTTP::Headers{"Authorization" => "Bearer #{RightDocuments.access_token}"}
-      response = HTTP::Client.get(uri, headers: headers)
-      unless response.status.success?
-        output.puts "documents failed: HTTP #{response.status.code} — #{response.body}"
+      entity = input.argument("entity").to_s
+      matter = input.option("matter").to_s
+      client = input.option("client").to_s
+      if [entity, matter, client].count { |value| !value.empty? } != 1
+        output.puts "error: give exactly one of ENTITY, --matter or --client"
         return ACON::Command::Status::FAILURE
       end
 
+      path = if !matter.empty?
+               "/api/v1/matters/#{Api.path_segment(matter)}/documents"
+             elsif !client.empty?
+               "/api/v1/clients/#{Api.path_segment(client)}/documents"
+             else
+               "/api/v1/entities/#{Api.path_segment(RightDocuments.resolve_entity_id(entity))}/documents"
+             end
+      result = Api.get(path)
+
       if json?(input)
-        output.puts response.body
+        output.puts result.to_pretty_json
       else
-        parsed = JSON.parse(response.body)
-        docs = parsed["documents"]?.try(&.as_a?) || [] of JSON::Any
+        docs = result["documents"]?.try(&.as_a?) || [] of JSON::Any
         docs.each do |doc|
-          output.puts "#{doc["id"]?}\t#{doc["name"]? || doc["id"]?}"
+          output.puts "#{MatterText.s(doc["id"]?)}\t#{MatterText.s(doc["name"]?)}\t#{MatterText.s(doc["status"]?)}"
         end
       end
       ACON::Command::Status::SUCCESS

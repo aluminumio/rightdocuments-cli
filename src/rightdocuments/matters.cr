@@ -100,6 +100,17 @@ module RightDocuments
     end
   end
 
+  # Prints "documents: N" and, when the server sends them, one line per document.
+  def self.print_document_summaries(output : ACON::Output::Interface, record : JSON::Any) : Nil
+    count = record["document_count"]?.try(&.as_i?)
+    docs = record["documents"]?.try(&.as_a?)
+    return unless count || docs
+    output.puts "documents: #{count || docs.try(&.size) || 0}"
+    docs.try &.each do |doc|
+      output.puts "  - #{MatterText.s(doc["id"]?)}  #{MatterText.s(doc["name"]?)} (#{MatterText.s(doc["status"]?)})"
+    end
+  end
+
   # Prints one matter with its parties.
   def self.print_matter(output : ACON::Output::Interface, matter : JSON::Any) : Nil
     output.puts "number: #{MatterText.s(matter["number"]?)}"
@@ -114,9 +125,7 @@ module RightDocuments
     if description = matter["description"]?.try(&.as_s?)
       output.puts "description: #{description}" unless description.empty?
     end
-    if count = matter["document_count"]?.try(&.as_i?)
-      output.puts "documents: #{count}"
-    end
+    RightDocuments.print_document_summaries(output, matter)
     conflicts = matter["conflicts"]?.try(&.as_a?) || [] of JSON::Any
     unless conflicts.empty?
       output.puts "POSSIBLE CONFLICTS (names match; a lawyer must review):".colorize(:yellow)
