@@ -156,6 +156,7 @@ module RightDocuments
       app.add MattersInfoCommand.new
       app.add MattersCreateCommand.new
       app.add MattersUpdateCommand.new
+      app.add MattersDeleteCommand.new
       app.add PartiesCommand.new
       app.add PartiesAddCommand.new
       app.add PartiesRemoveCommand.new
