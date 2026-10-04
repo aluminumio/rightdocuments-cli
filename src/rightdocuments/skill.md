@@ -84,6 +84,20 @@ Lists every document on the entity. Without `-j` you get a tab-separated `id<TAB
 - **Re-authenticate when 401**: a stale or rotated token surfaces as `HTTP 401`. Run `rightdocuments login` and retry.
 - **Profiles**: each login is bound to one organization. If the user works in more than one organization, pass the same `--profile NAME` on every call (or set `RIGHTDOCUMENTS_PROFILE`). `rightdocuments profiles -j` lists the stored logins with their organizations; check it before you write data.
 
+## Reading stored files
+
+`documents:info ID -j` lists every stored file of a document in `document.files`: `key` (`executed`, `unsigned`, `certificate`, `original`, or an asset key), `filename`, `byte_size`, `checksum`. `original` is the raw upload before letterhead; `certificate` is the signing certificate.
+
+```sh
+rightdocuments documents:info DOC_ID -j | jq '.document.files[] | {key, filename, byte_size}'
+rightdocuments documents:download DOC_ID                 # executed (else unsigned) into the current directory
+rightdocuments documents:download DOC_ID original -o /tmp/scan.pdf
+rightdocuments documents:download DOC_ID --all -o ./doc-files/
+rightdocuments documents:download DOC_ID --stdout | pdftotext - -
+```
+
+Downloads are checked against the server's MD5; a mismatch fails and saves nothing. Existing files are not overwritten without `-f`.
+
 ## Clients
 
 A client has a number (`0004`) that the server assigns on creation. Commands accept the number (`4` or `0004`), the exact name, or the UUID. New clients are `prospective`.
