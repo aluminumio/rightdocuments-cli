@@ -86,7 +86,7 @@ Lists every document on the entity. Without `-j` you get a tab-separated `id<TAB
 
 ## Reading stored files
 
-`documents:info ID -j` lists every stored file of a document in `document.files`: `key` (`executed`, `unsigned`, `certificate`, `original`, or an asset key), `filename`, `byte_size`, `checksum`. `original` is the raw upload before letterhead; `certificate` is the signing certificate.
+`documents:info ID -j` lists every stored file of a document in `document.files`: `key` (`executed`, `unsigned`, `certificate`, `original`, or an asset key), `filename`, `byte_size`, `checksum`. `original` is the raw upload before letterhead; `certificate` is the signing certificate. The asset with `filed_copy: true` (also `document.filed_copy`) is the stamped copy that the user marked as filed; download it with the key `filed`. `documents:download` without a file takes the filed copy first, then `executed`, then `unsigned`.
 
 ```sh
 rightdocuments documents:info DOC_ID -j | jq '.document.files[] | {key, filename, byte_size}'
