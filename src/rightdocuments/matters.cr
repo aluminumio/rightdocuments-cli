@@ -251,6 +251,37 @@ module RightDocuments
     end
   end
 
+  @[ACONA::AsCommand("matters:delete", description: "Delete a matter without documents, e.g. one opened in error (organization admins)")]
+  class MattersDeleteCommand < ACON::Command
+    protected def configure : Nil
+      self
+        .argument("matter", :required, "matter number (0004-001 or 4-1) or ID")
+        .option("yes", nil, ACON::Input::Option::Value[:none], "confirm: the matter is deleted permanently")
+    end
+
+    protected def execute(input : ACON::Input::Interface, output : ACON::Output::Interface) : ACON::Command::Status
+      path = "/api/v1/matters/#{Api.path_segment(input.argument("matter").to_s)}"
+      matter = Api.get(path)["matter"]
+      label = "#{MatterText.s(matter["number"]?)} #{MatterText.s(matter["name"]?)}"
+      unless input.option("yes", Bool)
+        parties = matter["parties"]?.try(&.as_a?.try(&.size)) || 0
+        deadlines = matter["deadlines"]?.try(&.as_a?.try(&.size)) || 0
+        output.puts "This deletes matter #{label} permanently, with its #{parties} parties and #{deadlines} deadlines."
+        output.puts "A matter with documents, voided ones included, cannot be deleted: void and delete them first."
+        output.puts "The matter number is not used again."
+        output.puts "Run again with --yes to delete."
+        return ACON::Command::Status::FAILURE
+      end
+
+      Api.delete(path)
+      output.puts "deleted #{label}"
+      ACON::Command::Status::SUCCESS
+    rescue ex
+      output.puts "matters:delete failed: #{ex.message}"
+      ACON::Command::Status::FAILURE
+    end
+  end
+
   @[ACONA::AsCommand("parties", description: "List a matter's parties")]
   class PartiesCommand < ACON::Command
     include JSONOption

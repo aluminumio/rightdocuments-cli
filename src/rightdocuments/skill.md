@@ -131,6 +131,7 @@ rightdocuments documents --matter 0004-001 -j              # full document recor
 ```
 
 - New matters open with status `open`, opened today, and no type. Set the rest with `matters:update`.
+- A matter opened in error: `rightdocuments matters:delete 0004-001 --yes` (organization admins). Its parties and deadlines are deleted with it. The server refuses a matter with documents, voided ones included: void and delete them first (`documents:void`, then `documents:delete`). The number is not used again. Without `--yes` it prints what it would delete and exits non-zero. After that, `clients:delete` works for a client with no other matters.
 - `--type`: `advisory`, `pre_litigation`, `litigation`. `--role`: `plaintiff`, `defendant`, `claimant`, `respondent`, `advisor`. `--status`: `open`, `closed`.
 - Party `--role`: `adverse_party` (default), `opposing_counsel`, `co_counsel`, `court`, `witness`, `other`. Use `--entity` when the party is one of the organization's companies.
 - `import --matter` files the PDF under the matter; the document belongs to the matter's client. Give exactly one of `--entity` or `--matter`.

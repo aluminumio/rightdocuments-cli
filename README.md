@@ -33,6 +33,7 @@ Or download a binary from [Releases](https://github.com/aluminumio/rightdocument
     rightdocuments matters:info 0004-001 [-j]             # parties, deadlines, documents
     rightdocuments matters:create --client 4 --name "Malone v. Olde Towne Tavern" [-j]
     rightdocuments matters:update 0004-001 --type pre_litigation --role claimant [-j]
+    rightdocuments matters:delete 0004-001 --yes          # organization admins; matters without documents
     rightdocuments parties 0004-001 [-j]
     rightdocuments parties:add 0004-001 --name NAME --role adverse_party [--address "Line 1\nLine 2"] [-j]
     rightdocuments parties:remove 0004-001 PARTY_ID
