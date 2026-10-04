@@ -6,7 +6,7 @@ module RightDocuments
   module Api
     def self.request(method : String, path : String, body : String? = nil, content_type : String = "application/json") : JSON::Any
       uri = URI.parse("#{BASE_URL}#{path}")
-      headers = HTTP::Headers{"Authorization" => "Bearer #{RightDocuments.oauth.access_token}"}
+      headers = HTTP::Headers{"Authorization" => "Bearer #{RightDocuments.access_token}"}
       headers["Content-Type"] = content_type if body
       response = HTTP::Client.exec(method, uri, headers: headers, body: body)
       unless response.status.success?

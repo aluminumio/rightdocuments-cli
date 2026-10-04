@@ -82,6 +82,7 @@ Lists every document on the entity. Without `-j` you get a tab-separated `id<TAB
 - **Capture IDs immediately** with `jq -r`. The entity/document `id` fields are UUIDs you'll need for subsequent calls.
 - **Errors are non-zero exit code + a single line** like `entities:create failed: HTTP 422 — {"error":...}`. Parse the JSON body after the em-dash for actionable detail.
 - **Re-authenticate when 401**: a stale or rotated token surfaces as `HTTP 401`. Run `rightdocuments login` and retry.
+- **Profiles**: each login is bound to one organization. If the user works in more than one organization, pass the same `--profile NAME` on every call (or set `RIGHTDOCUMENTS_PROFILE`). `rightdocuments profiles -j` lists the stored logins with their organizations; check it before you write data.
 
 ## Clients
 
