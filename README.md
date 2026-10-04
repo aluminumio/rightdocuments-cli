@@ -16,6 +16,7 @@ Or download a binary from [Releases](https://github.com/aluminumio/rightdocument
     rightdocuments entities [-j]
     rightdocuments entities:create --name NAME --type llc --state DE [-j]
     rightdocuments documents ENTITY_ID [-j]
+    rightdocuments documents --matter 0004-001 [-j]       # or --client 4; id, name, status
     rightdocuments import path/to/file.pdf --entity ENTITY_ID [-j]
     rightdocuments import path/to/file.pdf --matter 0004-001 [--name NAME] [-j]
     rightdocuments documents:info DOCUMENT_ID [-j]        # status and stored files with sizes
@@ -24,12 +25,12 @@ Or download a binary from [Releases](https://github.com/aluminumio/rightdocument
     rightdocuments documents:restore DOCUMENT_ID [-j]
     rightdocuments documents:delete DOCUMENT_ID           # admins, voided documents only
     rightdocuments clients [--status engaged] [--type business] [-j]   # client numbers
-    rightdocuments clients:info 4 [-j]                    # number, exact name, or ID
+    rightdocuments clients:info 4 [-j]                    # number, exact name, or ID; lists its documents
     rightdocuments clients:create --name NAME --type business --email EMAIL [--entity COMPANY] [-j]
     rightdocuments clients:update 4 --status engaged --notes NOTES [-j]   # organization admins
     rightdocuments clients:delete 4 --yes                 # organization admins; clients without matters
     rightdocuments matters [--status open|closed] [--client 4] [-j]
-    rightdocuments matters:info 0004-001 [-j]
+    rightdocuments matters:info 0004-001 [-j]             # parties, deadlines, documents
     rightdocuments matters:create --client 4 --name "Malone v. Olde Towne Tavern" [-j]
     rightdocuments matters:update 0004-001 --type pre_litigation --role claimant [-j]
     rightdocuments parties 0004-001 [-j]

@@ -16,12 +16,12 @@ module RightDocuments
     if entity = client["entity"]?.try(&.as_h?)
       output.puts "company: #{entity["name"]?.try(&.as_s?)} (#{entity["id"]?.try(&.as_s?)})"
     end
-    output.puts "documents: #{client["document_count"]?.try(&.as_i?) || 0}"
     output.puts "matters: #{client["matter_count"]?.try(&.as_i?) || 0}"
     if notes = client["notes"]?.try(&.as_s?)
       output.puts "notes: #{notes}" unless notes.empty?
     end
     output.puts "id: #{MatterText.s(client["id"]?)}"
+    RightDocuments.print_document_summaries(output, client)
   end
 
   # Options shared by clients:create and clients:update, mapped to API fields.
