@@ -19,7 +19,7 @@ Or download a binary from [Releases](https://github.com/aluminumio/rightdocument
     rightdocuments import path/to/file.pdf --entity ENTITY_ID [-j]
     rightdocuments import path/to/file.pdf --matter 0004-001 [--name NAME] [-j]
     rightdocuments documents:info DOCUMENT_ID [-j]        # status and stored files with sizes
-    rightdocuments documents:download DOCUMENT_ID [executed|unsigned|certificate|original|ASSET_KEY] [-o PATH] [--all] [--stdout] [-f]
+    rightdocuments documents:download DOCUMENT_ID [filed|executed|unsigned|certificate|original|ASSET_KEY] [-o PATH] [--all] [--stdout] [-f]
     rightdocuments documents:void DOCUMENT_ID [-j]        # hide; restore or delete later
     rightdocuments documents:restore DOCUMENT_ID [-j]
     rightdocuments documents:delete DOCUMENT_ID           # admins, voided documents only

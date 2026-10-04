@@ -64,8 +64,8 @@ module RightDocuments
       files = DocumentText.files(doc)
       output.puts "files:#{files.empty? ? " none" : ""}"
       files.each do |file|
-        kind = MatterText.s(file["kind"]?)
-        asset_key = kind == "asset" ? "  (key #{MatterText.s(file["key"]?)})" : ""
+        kind = file["filed_copy"]?.try(&.as_bool?) ? "filed copy" : MatterText.s(file["kind"]?)
+        asset_key = MatterText.s(file["kind"]?) == "asset" ? "  (key #{MatterText.s(file["key"]?)})" : ""
         output.puts "  #{kind.ljust(12)}#{DocumentText.size(file["byte_size"]?.try(&.as_i64?) || 0_i64).rjust(8)}  " \
                     "#{MatterText.s(file["filename"]?)}#{asset_key}"
       end
@@ -82,7 +82,7 @@ module RightDocuments
     protected def configure : Nil
       self
         .argument("id", :required, "document ID")
-        .argument("file", :optional, "executed, unsigned, certificate, original, or an asset key (default: executed, else unsigned)")
+        .argument("file", :optional, "filed, executed, unsigned, certificate, original, or an asset key (default: filed, else executed, else unsigned)")
         .option("output", "o", ACON::Input::Option::Value[:required], "file or directory to write (default: current directory)")
         .option("stdout", nil, ACON::Input::Option::Value[:none], "write the file to standard output")
         .option("all", "a", ACON::Input::Option::Value[:none], "download every stored file into the --output directory")
@@ -120,12 +120,14 @@ module RightDocuments
 
     private def select_files(files : Array(JSON::Any), key : String?, all : Bool) : Array(JSON::Any)
       return files if all
+      filed = files.find { |f| f["filed_copy"]?.try(&.as_bool?) }
       if key
-        match = files.find { |f| MatterText.s(f["key"]?) == key }
-        raise "no file #{key.inspect}; this document has: #{files.map { |f| MatterText.s(f["key"]?) }.join(", ")}" unless match
+        match = key == "filed" ? filed : files.find { |f| MatterText.s(f["key"]?) == key }
+        raise "no file #{key.inspect}; this document has: #{(files.map { |f| MatterText.s(f["key"]?) } + (filed ? ["filed"] : [] of String)).join(", ")}" unless match
         return [match]
       end
-      default = files.find { |f| MatterText.s(f["key"]?) == "executed" } || files.find { |f| MatterText.s(f["key"]?) == "unsigned" } || files.first
+      # Same order as the web viewer: the filed copy first, then the executed PDF.
+      default = filed || files.find { |f| MatterText.s(f["key"]?) == "executed" } || files.find { |f| MatterText.s(f["key"]?) == "unsigned" } || files.first
       [default]
     end
 
