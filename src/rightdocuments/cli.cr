@@ -7,14 +7,65 @@ module RightDocuments
   CLIENT_ID = ENV["RIGHTDOCUMENTS_CLIENT_ID"]? || "d4803e11ec443f87854a6caec69ab50b"
   BASE_URL  = ENV["RIGHTDOCUMENTS_URL"]? || "https://app.rightdocuments.com"
 
-  # Build a fresh OAuth client. NetrcStore persists tokens at ~/.netrc.
+  DEFAULT_PROFILE = "default"
+  PROFILE_NAME    = /\A[A-Za-z0-9._-]+\z/
+
+  # The named login in use: --profile, else $RIGHTDOCUMENTS_PROFILE, else "default".
+  class_property profile : String = ENV["RIGHTDOCUMENTS_PROFILE"]?.presence || DEFAULT_PROFILE
+
+  def self.host : String
+    URI.parse(BASE_URL).hostname || "rightdocuments.com"
+  end
+
+  # The ~/.netrc machine name for a profile. The default profile keeps the plain
+  # host, so logins from before profiles still work.
+  def self.netrc_machine(profile : String = self.profile) : String
+    profile == DEFAULT_PROFILE ? host : "#{profile}@#{host}"
+  end
+
+  # Profiles with a stored login for this host, from the ~/.netrc machine names.
+  def self.stored_profiles : Array(String)
+    path = File.expand_path("~/.netrc", home: true)
+    return [] of String unless File.exists?(path)
+    File.read(path).scan(/^\s*machine\s+(\S+)/m).compact_map do |match|
+      machine = match[1]
+      if machine == host
+        DEFAULT_PROFILE
+      elsif machine.ends_with?("@#{host}")
+        machine.rchop("@#{host}")
+      end
+    end.uniq!.sort!
+  end
+
+  # Takes --profile NAME or --profile=NAME from the arguments before Athena parses them,
+  # because the token store is chosen outside any one command.
+  def self.select_profile(argv : Array(String)) : Nil
+    argv.each_with_index do |arg, i|
+      break if arg == "--"
+      value = arg == "--profile" ? argv[i + 1]? : (arg.starts_with?("--profile=") ? arg.lchop("--profile=") : nil)
+      next unless value
+      self.profile = value
+      break
+    end
+    return if profile.matches?(PROFILE_NAME)
+    STDERR.puts "error: profile names use only letters, digits, '.', '_' and '-' (got #{profile.inspect})"
+    exit 1
+  end
+
+  # Build a fresh OAuth client for the current profile. NetrcStore persists tokens at ~/.netrc.
   def self.oauth : OAuth::DeviceFlow::Client
-    machine = URI.parse(BASE_URL).hostname || "rightdocuments.com"
     OAuth::DeviceFlow::Client.new(
       base_url:  BASE_URL,
       client_id: CLIENT_ID,
-      store:     OAuth::DeviceFlow::NetrcStore.new(machine: machine),
+      store:     OAuth::DeviceFlow::NetrcStore.new(machine: netrc_machine),
     )
+  end
+
+  # The current profile's access token, refreshed when needed.
+  def self.access_token : String
+    oauth.access_token
+  rescue OAuth::DeviceFlow::Error::NotAuthenticated
+    raise "not logged in (profile #{profile}); run `rightdocuments login#{profile == DEFAULT_PROFILE ? "" : " --profile #{profile}"}`"
   end
 
   # Build an SDK config with the current access token. Token refresh is handled
@@ -24,7 +75,7 @@ module RightDocuments
     uri = URI.parse(BASE_URL)
     config.host         = uri.host.to_s + (uri.port ? ":#{uri.port}" : "")
     config.scheme       = uri.scheme || "https"
-    config.access_token = oauth.access_token
+    config.access_token = access_token
     config
   end
 
@@ -72,7 +123,11 @@ module RightDocuments
 
   module CLI
     def self.run(argv : Array(String)) : Nil
+      RightDocuments.select_profile(argv)
       app = ACON::Application.new("rightdocuments", CLI_VERSION)
+      app.definition << ACON::Input::Option.new("profile", value_mode: :required,
+        description: "Named login to use, like the AWS CLI (default: $RIGHTDOCUMENTS_PROFILE or \"default\")")
+      app.add ProfilesCommand.new
       app.add WhoamiCommand.new
       app.add LoginCommand.new
       app.add LogoutCommand.new
@@ -118,6 +173,44 @@ module RightDocuments
     end
   end
 
+  @[ACONA::AsCommand("profiles", description: "List stored logins and the organization of each")]
+  class ProfilesCommand < ACON::Command
+    include JSONOption
+
+    protected def configure : Nil
+      ProfilesCommand.add_json_option(self)
+    end
+
+    protected def execute(input : ACON::Input::Interface, output : ACON::Output::Interface) : ACON::Command::Status
+      current = RightDocuments.profile
+      rows = RightDocuments.stored_profiles.map do |name|
+        RightDocuments.profile = name
+        me = Api.get("/api/v1/me") rescue nil
+        {
+          profile:      name,
+          current:      name == current,
+          user:         me.try(&.dig?("user", "email").try(&.as_s?)),
+          organization: me.try(&.dig?("organization", "name").try(&.as_s?)),
+        }
+      end
+      RightDocuments.profile = current
+
+      if json?(input)
+        output.puts({profiles: rows}.to_pretty_json)
+        return ACON::Command::Status::SUCCESS
+      end
+      if rows.empty?
+        output.puts "No stored logins. Run `rightdocuments login [--profile NAME]`."
+        return ACON::Command::Status::SUCCESS
+      end
+      rows.each do |row|
+        organization = row[:organization] || "(login expired: run `rightdocuments login --profile #{row[:profile]}`)"
+        output.puts "#{row[:current] ? "*" : " "} #{row[:profile].ljust(20)}#{organization.ljust(32)}#{row[:user]}"
+      end
+      ACON::Command::Status::SUCCESS
+    end
+  end
+
   @[ACONA::AsCommand("skills", description: "Print the agent/LLM usage guide for this CLI")]
   class SkillsCommand < ACON::Command
     SKILL = {{ read_file "#{__DIR__}/skill.md" }}
@@ -132,7 +225,7 @@ module RightDocuments
   class LoginCommand < ACON::Command
     protected def execute(input : ACON::Input::Interface, output : ACON::Output::Interface) : ACON::Command::Status
       RightDocuments.oauth.authenticate(scope: "documents:read documents:write")
-      output.puts "Logged in."
+      output.puts "Logged in (profile #{RightDocuments.profile})."
       ACON::Command::Status::SUCCESS
     rescue ex
       output.puts "Login failed: #{ex.message}"
@@ -144,7 +237,7 @@ module RightDocuments
   class LogoutCommand < ACON::Command
     protected def execute(input : ACON::Input::Interface, output : ACON::Output::Interface) : ACON::Command::Status
       RightDocuments.oauth.logout
-      output.puts "Logged out."
+      output.puts "Logged out (profile #{RightDocuments.profile})."
       ACON::Command::Status::SUCCESS
     end
   end
@@ -165,6 +258,7 @@ module RightDocuments
       else
         user = result.user
         org  = result.organization
+        output.puts "profile: #{RightDocuments.profile}"
         output.puts "user: #{user.try(&.email) || user.try(&.id)}"
         output.puts "organization: #{org.try(&.name) || org.try(&.id)}"
       end
@@ -191,7 +285,7 @@ module RightDocuments
 
     protected def execute(input : ACON::Input::Interface, output : ACON::Output::Interface) : ACON::Command::Status
       uri = URI.parse("#{RightDocuments::BASE_URL}/api/v1/entities")
-      headers = HTTP::Headers{"Authorization" => "Bearer #{RightDocuments.oauth.access_token}"}
+      headers = HTTP::Headers{"Authorization" => "Bearer #{RightDocuments.access_token}"}
       response = HTTP::Client.get(uri, headers: headers)
       unless response.status.success?
         output.puts "entities failed: HTTP #{response.status.code}"
@@ -269,7 +363,7 @@ module RightDocuments
     return identifier if identifier.matches?(UUID_RE)
 
     uri = URI.parse("#{BASE_URL}/api/v1/entities")
-    headers = HTTP::Headers{"Authorization" => "Bearer #{oauth.access_token}"}
+    headers = HTTP::Headers{"Authorization" => "Bearer #{access_token}"}
     response = HTTP::Client.get(uri, headers: headers)
     unless response.status.success?
       raise "could not list entities (HTTP #{response.status.code})"
@@ -460,7 +554,7 @@ module RightDocuments
 
       uri = URI.parse("#{RightDocuments::BASE_URL}/api/v1/entities")
       headers = HTTP::Headers{
-        "Authorization" => "Bearer #{RightDocuments.oauth.access_token}",
+        "Authorization" => "Bearer #{RightDocuments.access_token}",
         "Content-Type"  => "application/json",
       }
       response = HTTP::Client.post(uri, headers: headers, body: body)
@@ -525,7 +619,7 @@ module RightDocuments
 
       uri = URI.parse("#{RightDocuments::BASE_URL}/api/v1/entities/#{URI.encode_path(id)}")
       headers = HTTP::Headers{
-        "Authorization" => "Bearer #{RightDocuments.oauth.access_token}",
+        "Authorization" => "Bearer #{RightDocuments.access_token}",
         "Content-Type"  => "application/json",
       }
       body = { "entity" => entity }.to_json
@@ -562,7 +656,7 @@ module RightDocuments
 
     protected def execute(input : ACON::Input::Interface, output : ACON::Output::Interface) : ACON::Command::Status
       uri = URI.parse("#{RightDocuments::BASE_URL}/api/v1/templates")
-      headers = HTTP::Headers{"Authorization" => "Bearer #{RightDocuments.oauth.access_token}"}
+      headers = HTTP::Headers{"Authorization" => "Bearer #{RightDocuments.access_token}"}
       response = HTTP::Client.get(uri, headers: headers)
       unless response.status.success?
         output.puts "templates failed: HTTP #{response.status.code}"
@@ -598,7 +692,7 @@ module RightDocuments
     protected def execute(input : ACON::Input::Interface, output : ACON::Output::Interface) : ACON::Command::Status
       id = input.argument("template_id").to_s
       uri = URI.parse("#{RightDocuments::BASE_URL}/api/v1/templates/#{URI.encode_path(id)}")
-      headers = HTTP::Headers{"Authorization" => "Bearer #{RightDocuments.oauth.access_token}"}
+      headers = HTTP::Headers{"Authorization" => "Bearer #{RightDocuments.access_token}"}
       response = HTTP::Client.get(uri, headers: headers)
       unless response.status.success?
         output.puts "templates:info failed: HTTP #{response.status.code}"
@@ -677,7 +771,7 @@ module RightDocuments
 
       uri = URI.parse("#{RightDocuments::BASE_URL}/api/v1/templates")
       headers = HTTP::Headers{
-        "Authorization" => "Bearer #{RightDocuments.oauth.access_token}",
+        "Authorization" => "Bearer #{RightDocuments.access_token}",
         "Content-Type"  => "application/json",
       }
       body = { "template" => template }.to_json
@@ -740,7 +834,7 @@ module RightDocuments
 
       uri = URI.parse("#{RightDocuments::BASE_URL}/api/v1/entities/#{URI.encode_path(entity_id)}/documents")
       headers = HTTP::Headers{
-        "Authorization" => "Bearer #{RightDocuments.oauth.access_token}",
+        "Authorization" => "Bearer #{RightDocuments.access_token}",
         "Content-Type"  => "application/json",
       }
       response = HTTP::Client.post(uri, headers: headers, body: body.to_json)
@@ -782,7 +876,7 @@ module RightDocuments
       entity_id = RightDocuments.resolve_entity_id(input.argument("entity").to_s)
       # Swagger doesn't describe the response schema, so call HTTP directly.
       uri = URI.parse("#{RightDocuments::BASE_URL}/api/v1/entities/#{URI.encode_path(entity_id)}/documents")
-      headers = HTTP::Headers{"Authorization" => "Bearer #{RightDocuments.oauth.access_token}"}
+      headers = HTTP::Headers{"Authorization" => "Bearer #{RightDocuments.access_token}"}
       response = HTTP::Client.get(uri, headers: headers)
       unless response.status.success?
         output.puts "documents failed: HTTP #{response.status.code} — #{response.body}"
@@ -856,7 +950,7 @@ module RightDocuments
 
       uri = URI.parse("#{RightDocuments::BASE_URL}/api/v1/documents/#{URI.encode_path(id)}")
       headers = HTTP::Headers{
-        "Authorization" => "Bearer #{RightDocuments.oauth.access_token}",
+        "Authorization" => "Bearer #{RightDocuments.access_token}",
         "Content-Type"  => "application/json",
       }
       response = HTTP::Client.patch(uri, headers: headers, body: body.to_json)
@@ -930,7 +1024,7 @@ module RightDocuments
       end
       builder.finish
       headers = HTTP::Headers{
-        "Authorization" => "Bearer #{RightDocuments.oauth.access_token}",
+        "Authorization" => "Bearer #{RightDocuments.access_token}",
         "Content-Type"  => builder.content_type,
       }
       response = HTTP::Client.post(uri, headers: headers, body: io.to_s)
@@ -952,7 +1046,7 @@ module RightDocuments
         patch_body["name"] = name_val.not_nil! if name_val
         patch_uri = URI.parse("#{RightDocuments::BASE_URL}/api/v1/documents/#{URI.encode_path(doc_id)}")
         patch_headers = HTTP::Headers{
-          "Authorization" => "Bearer #{RightDocuments.oauth.access_token}",
+          "Authorization" => "Bearer #{RightDocuments.access_token}",
           "Content-Type"  => "application/json",
         }
         patch_resp = HTTP::Client.patch(patch_uri, headers: patch_headers, body: patch_body.to_json)

@@ -12,6 +12,7 @@ Or download a binary from [Releases](https://github.com/aluminumio/rightdocument
 
     rightdocuments login                                  # OAuth device-flow login
     rightdocuments whoami [-j]
+    rightdocuments profiles [-j]                          # stored logins and their organizations
     rightdocuments entities [-j]
     rightdocuments entities:create --name NAME --type llc --state DE [-j]
     rightdocuments documents ENTITY_ID [-j]
@@ -45,6 +46,17 @@ Or download a binary from [Releases](https://github.com/aluminumio/rightdocument
 
 Pass `-j`/`--json` on any data command for machine-readable output. Run `rightdocuments skills` for an end-to-end walkthrough an LLM/agent can consume directly.
 
+
+## Profiles
+
+Each login is bound to one organization. To use more than one organization at the same time, give each login a name with `--profile` (like the AWS CLI):
+
+    rightdocuments login --profile siegel-bebeni          # select the organization in the browser
+    rightdocuments clients --profile siegel-bebeni
+    export RIGHTDOCUMENTS_PROFILE=siegel-bebeni           # or set it once for the shell
+    rightdocuments profiles                               # * marks the profile in use
+
+Without `--profile` or `$RIGHTDOCUMENTS_PROFILE`, the CLI uses the `default` profile. Tokens are kept in `~/.netrc` (`machine NAME@app.rightdocuments.com`; the default profile uses the plain host).
 ## Build from source
 
     shards install
