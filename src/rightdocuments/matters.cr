@@ -8,7 +8,29 @@ module RightDocuments
       uri = URI.parse("#{BASE_URL}#{path}")
       headers = HTTP::Headers{"Authorization" => "Bearer #{RightDocuments.access_token}"}
       headers["Content-Type"] = content_type if body
-      response = HTTP::Client.exec(method, uri, headers: headers, body: body)
+      parse(HTTP::Client.exec(method, uri, headers: headers, body: body))
+    end
+
+    # POSTs a multipart form: text fields, and files by field name => local path.
+    def self.multipart(path : String, fields : Hash(String, String), files : Hash(String, String)) : JSON::Any
+      io = IO::Memory.new
+      builder = HTTP::FormData::Builder.new(io)
+      fields.each { |name, value| builder.field(name, value) }
+      files.each do |name, file_path|
+        File.open(file_path) do |file|
+          builder.file(name, file, HTTP::FormData::FileMetadata.new(filename: File.basename(file_path)),
+            HTTP::Headers{"Content-Type" => "application/pdf"})
+        end
+      end
+      builder.finish
+      headers = HTTP::Headers{
+        "Authorization" => "Bearer #{RightDocuments.access_token}",
+        "Content-Type"  => builder.content_type,
+      }
+      parse(HTTP::Client.post(URI.parse("#{BASE_URL}#{path}"), headers: headers, body: io.to_s))
+    end
+
+    private def self.parse(response : HTTP::Client::Response) : JSON::Any
       unless response.status.success?
         message = (JSON.parse(response.body)["message"]?.try(&.as_s?) rescue nil) || response.body
         errors = (JSON.parse(response.body)["errors"]? rescue nil)
@@ -135,6 +157,15 @@ module RightDocuments
     unless deadlines.empty?
       output.puts "deadlines:"
       deadlines.each { |d| output.puts "  - #{MatterText.s(d["due_on"]?)} #{MatterText.s(d["label"]?)}: #{MatterText.s(d["name"]?)}" }
+    end
+    court_cases = matter["court_cases"]?.try(&.as_a?) || [] of JSON::Any
+    unless court_cases.empty?
+      output.puts "court cases:"
+      court_cases.each do |c|
+        number = MatterText.s(c["case_number"]?)
+        output.puts "  - #{MatterText.s(c["court_name"]?)}: #{number.empty? ? "not filed yet" : number} " \
+                    "(#{MatterText.s(c["status"]?)}) #{MatterText.s(c["id"]?)}"
+      end
     end
     parties = matter["parties"]?.try(&.as_a?) || [] of JSON::Any
     output.puts "parties:#{parties.empty? ? " none" : ""}"

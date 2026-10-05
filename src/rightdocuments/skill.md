@@ -74,6 +74,10 @@ Lists every document on the entity. Without `-j` you get a tab-separated `id<TAB
 | `documents <entity_id>` | List documents on an entity | `-j` |
 | `documents --matter <n>` / `--client <n>` | List documents of a matter or a client | `-j` |
 | `import <path> --entity <id>` | Upload a PDF as an executed document | `-j` |
+| `cases:open <matter>` | Open a court case before filing | `--court`, `--court-code`, `--type`, `--jury`, `--efsp`, `-j` |
+| `cases:info <case>` | Court case facts with source documents, and filings | `-j` |
+| `filings:add <case>` | Record a court filing; the endorsed copy sets the case number and filed date | `--document`, `--kind`, `--fees`, `--efsp-ref`, `--endorsed`, `--case-number`, `--filed`, `-j` |
+| `filings:list <case>` | List a court case's filings | `-j` |
 | `catalog` | Enumerate server-defined choices (entity types, states, statuses) | `-j` |
 | `skills` | Print this guide (for agents/LLMs) | — |
 
@@ -153,6 +157,30 @@ rightdocuments deadlines:done 0004-001 DEADLINE_ID
 rightdocuments deadlines:reopen 0004-001 DEADLINE_ID
 rightdocuments deadlines:remove 0004-001 DEADLINE_ID
 ```
+
+## Court cases and court filings
+
+A matter can have court cases (usually one). `cases:open` records the court we intend to file in: name, court code (lowercase, e.g. `ca_sf_superior`), case type (`limited`, `unlimited`, `other`), jury demand and the e-filing service provider (EFSP). The case starts as `pre_filing`.
+
+The case number and the filed date are facts. Only the court's endorsed (stamped) copy sets them, through `filings:add --endorsed`. No command sets them by hand, and the API refuses them in a plain update (422).
+
+```sh
+rightdocuments import complaint.pdf --matter 0004-001 --name "Complaint (as filed)" -j   # the as-filed copy
+rightdocuments cases:open 0004-001 --court "Superior Court of California, County of San Francisco" \
+  --court-code ca_sf_superior --type unlimited --jury --efsp "One Legal" -j
+# When the endorsed copy comes back from the court:
+rightdocuments filings:add 0004-001 --document DOC_ID --kind complaint --fees 435.00 --efsp-ref ENV-123 \
+  --endorsed ./stamped.pdf --case-number CGC-26-612345 --filed 2026-10-10 -j
+rightdocuments cases:info 0004-001 -j        # facts.case_number.source_document names the document
+rightdocuments filings:list CGC-26-612345 -j
+```
+
+- `<case>` is the court case ID, its case number, or the matter number when the matter has exactly one case.
+- `--document` is the as-filed document, already filed under the same matter (find it with `matters:info 0004-001 -j | jq '.matter.documents'`). A document is filed once.
+- With `--endorsed`, the stamped PDF becomes an asset of that document and its filed copy (download it with `documents:download DOC_ID filed`), the filing is `accepted` on `--filed`, and the case becomes `open` with the case number and filed date, each linked to the document. `--filed` is required with `--endorsed`.
+- Without `--endorsed` the filing is `submitted`, and `--case-number` / `--filed` are refused. A submitted filing cannot be marked accepted yet; when the endorsed copy is back soon, wait and record the filing once with `--endorsed`.
+- Kinds: `complaint`, `other`. `--fees` is in dollars.
+- A filed document cannot be deleted or moved to another matter.
 
 ## Logging how a document was sent
 

@@ -170,6 +170,10 @@ module RightDocuments
       app.add DeliveriesUpdateCommand.new
       app.add DeliveriesSyncCommand.new
       app.add DocumentsMailCommand.new
+      app.add CasesOpenCommand.new
+      app.add CasesInfoCommand.new
+      app.add FilingsAddCommand.new
+      app.add FilingsListCommand.new
       app.add CatalogCommand.new
       app.add SkillsCommand.new
       app.run(ACON::Input::ARGV.new(argv))
