@@ -40,6 +40,12 @@ Or download a binary from [Releases](https://github.com/aluminumio/rightdocument
     rightdocuments deadlines 0004-001 [-j]
     rightdocuments deadlines:add 0004-001 --name "Tavern responds" --due 2026-09-16 [--notes NOTES] [-j]
     rightdocuments deadlines:done 0004-001 DEADLINE_ID     # also deadlines:reopen, deadlines:remove
+    rightdocuments cases:open 0004-001 --court "Superior Court of California, County of San Francisco" \
+      --court-code ca_sf_superior --type unlimited [--jury] [--efsp "One Legal"] [-j]
+    rightdocuments cases:info 0004-001 [-j]               # or the case ID or case number; facts with source documents
+    rightdocuments filings:add 0004-001 --document DOC_ID --kind complaint [--fees 435.00] [--efsp-ref REF] \
+      [--endorsed ./stamped.pdf --case-number CGC-26-612345 --filed 2026-10-10] [-j]
+    rightdocuments filings:list 0004-001 [-j]
     rightdocuments deliveries DOCUMENT_ID [-j]
     rightdocuments deliveries:add DOCUMENT_ID --channel mail --sent 2026-09-02 --party PARTY_ID [-j]
     rightdocuments deliveries:update DOCUMENT_ID DELIVERY_ID --status delivered --delivered 2026-09-08 [-j]
