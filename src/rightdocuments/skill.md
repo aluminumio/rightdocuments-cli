@@ -76,8 +76,15 @@ Lists every document on the entity. Without `-j` you get a tab-separated `id<TAB
 | `import <path> --entity <id>` | Upload a PDF as an executed document | `-j` |
 | `cases:open <matter>` | Open a court case before filing | `--court`, `--court-code`, `--type`, `--jury`, `--efsp`, `-j` |
 | `cases:info <case>` | Court case facts with source documents, and filings | `-j` |
-| `filings:add <case>` | Record a court filing; the endorsed copy sets the case number and filed date | `--document`, `--kind`, `--fees`, `--efsp-ref`, `--endorsed`, `--case-number`, `--filed`, `-j` |
-| `filings:list <case>` | List a court case's filings | `-j` |
+| `filings:add <case>` | Older form: record a court filing; the endorsed copy sets the case number and filed date | `--document`, `--kind`, `--fees`, `--efsp-ref`, `--endorsed`, `--case-number`, `--filed`, `-j` |
+| `filings:list <case>` | List a court case's filings (court submissions) | `-j` |
+| `submissions <document>` | Where a document was sent, and what came back | `-j` |
+| `submissions:add <document>` | Record that a document was sent to a court, an agency or a party | `--to`, `--case`, `--kind`, `--channel`, `--provider`, `--submitted`, `--reference`, `--fees`, `--name`, `--jurisdiction`, `-j` |
+| `submissions:accept <submission>` | Record the acceptance or the filed copy; it proves the facts | `--copy`, `--returned`, `--received`, `--filed`, `--case-number`, `--file-number`, `--formation-date`, `--ein`, `--dry-run`, `-j` |
+| `submissions:receipt <submission>` | Record a submission receipt (proves nothing) | `--file`, `--reference`, `--dry-run`, `-j` |
+| `submissions:reject <submission>` | Record a rejection | `--reason`, `--file`, `--dry-run`, `-j` |
+| `submissions:correct <submission>` | Logged correction with a reason | `--reason`, `--received`, `--filed`, `--reference`, `--withdraw`, ..., `-j` |
+| `submissions:info <submission>` | A submission's history and the facts it proved | `-j` |
 | `catalog` | Enumerate server-defined choices (entity types, states, statuses) | `-j` |
 | `skills` | Print this guide (for agents/LLMs) | — |
 
@@ -162,25 +169,43 @@ rightdocuments deadlines:remove 0004-001 DEADLINE_ID
 
 A matter can have court cases (usually one). `cases:open` records the court we intend to file in: name, court code (lowercase, e.g. `ca_sf_superior`), case type (`limited`, `unlimited`, `other`), jury demand and the e-filing service provider (EFSP). The case starts as `pre_filing`.
 
-The case number and the filed date are facts. Only the court's endorsed (stamped) copy sets them, through `filings:add --endorsed`. No command sets them by hand, and the API refuses them in a plain update (422).
+The case number and the filed date are facts. Only what the court sends back sets them: its acceptance (confirmation) or its endorsed (stamped) copy, recorded on the document's court submission (see "Submissions" below). No command sets them by hand, and the API refuses them in a plain update (422).
 
 ```sh
 rightdocuments import complaint.pdf --matter 0004-001 --name "Complaint (as filed)" -j   # the as-filed copy
 rightdocuments cases:open 0004-001 --court "Superior Court of California, County of San Francisco" \
   --court-code ca_sf_superior --type unlimited --jury --efsp "One Legal" -j
-# When the endorsed copy comes back from the court:
-rightdocuments filings:add 0004-001 --document DOC_ID --kind complaint --fees 435.00 --efsp-ref ENV-123 \
-  --endorsed ./stamped.pdf --case-number CGC-26-612345 --filed 2026-10-10 -j
-rightdocuments cases:info 0004-001 -j        # facts.case_number.source_document names the document
-rightdocuments filings:list CGC-26-612345 -j
+# When you file it through the EFSP:
+rightdocuments submissions:add DOC_ID --to court --kind complaint --channel efsp --provider "One Legal" \
+  --submitted 2026-10-10T22:40 --reference ENV-123 --fees 435.00 -j
+# When the court accepts it (One Legal's confirmation), then when the endorsed copy comes back:
+rightdocuments submissions:accept SUB_ID --returned acceptance --copy ./confirmation.pdf --received 2026-10-10T23:00 -j
+rightdocuments submissions:accept SUB_ID --copy ./endorsed.pdf --case-number CGC-26-612345 -j
+rightdocuments cases:info 0004-001 -j        # facts.case_number.source_document and .source_submission
 ```
 
 - `<case>` is the court case ID, its case number, or the matter number when the matter has exactly one case.
-- `--document` is the as-filed document, already filed under the same matter (find it with `matters:info 0004-001 -j | jq '.matter.documents'`). A document is filed once.
-- With `--endorsed`, the stamped PDF becomes an asset of that document and its filed copy (download it with `documents:download DOC_ID filed`), the filing is `accepted` on `--filed`, and the case becomes `open` with the case number and filed date, each linked to the document. `--filed` is required with `--endorsed`.
-- Without `--endorsed` the filing is `submitted`, and `--case-number` / `--filed` are refused. A submitted filing cannot be marked accepted yet; when the endorsed copy is back soon, wait and record the filing once with `--endorsed`.
+- `filings:add` and `filings:list` still work. A filing is a court submission; its `id` is the submission ID, so `submissions:accept FILING_ID` accepts a filing that was recorded as submitted. `filings:add --endorsed` on a document that is already submitted in the case accepts that submission.
 - Kinds: `complaint`, `other`. `--fees` is in dollars.
-- A filed document cannot be deleted or moved to another matter.
+- A submitted document cannot be deleted or moved to another matter.
+
+## Submissions: what came back proves facts
+
+A submission is a document sent to an authority or a party: `--to court`, `sos` (secretary of state), `irs`, `agency` or `party`. A document can have many (a resubmission after a rejection is a new submission). Record what came back with the returned file:
+
+| What came back | Command | Consequence |
+|---|---|---|
+| Submission receipt (EFSP, portal) | `submissions:receipt SUB --file receipt.pdf` | Kept; nothing proven; still open |
+| Acceptance (court confirmation) | `submissions:accept SUB --returned acceptance --copy conf.pdf --received 2026-10-10T23:00` | Accepted; the filed date comes from the received time (required) |
+| Filed or endorsed copy | `submissions:accept SUB --copy stamped.pdf [--received ...] [--filed YYYY-MM-DD] [facts]` | Becomes the document's filed copy; proves the facts; accepts an open submission |
+| Certified copy | `submissions:accept SUB --returned certified_copy --copy certified.pdf` | Kept with an accepted submission; filed copy only if there is none |
+| Rejection notice | `submissions:reject SUB --reason "..." [--file notice.pdf]` | Rejected; nothing proven; add a new submission to try again |
+
+- Facts by recipient: court → `--case-number` (and the filed date) on the court case; sos → `--file-number`, `--formation-date` on the company (a document tagged `state-filing` sets the formation date from the filed date when the company has none); irs → `--ein` (CP 575 or 147C). They are written with the document as their source and show on `entities:info` / `cases:info` with the submission that proved them.
+- Times without an offset are read in the authority's time zone (the court's calendar, or by `--jurisdiction`: DE → New York, CA → Los Angeles).
+- A court submission received electronically on a non-court day is deemed filed the next court day (CCP 1010.6(e)(3); CRC 2.259). Siegel v. Tesla: received Sat Oct 10, 2026 at 11:00 p.m. → filed Mon Oct 12. Outside the court's calendar, on an unsettled day, or for a court without a calendar, the filed date stays empty with a warning; record the stamped copy with `--filed`.
+- `--dry-run` prints what recording would do and records nothing. Use it before you record.
+- Mistakes: `submissions:correct SUB --reason "..." [--received ...] [--filed ...] [--case-number ...] [--withdraw]`. The correction is kept in the history; nothing is deleted. Only the person who recorded the submission or an organization admin can correct it.
 
 ## Logging how a document was sent
 

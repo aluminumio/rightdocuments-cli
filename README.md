@@ -45,7 +45,16 @@ Or download a binary from [Releases](https://github.com/aluminumio/rightdocument
     rightdocuments cases:info 0004-001 [-j]               # or the case ID or case number; facts with source documents
     rightdocuments filings:add 0004-001 --document DOC_ID --kind complaint [--fees 435.00] [--efsp-ref REF] \
       [--endorsed ./stamped.pdf --case-number CGC-26-612345 --filed 2026-10-10] [-j]
-    rightdocuments filings:list 0004-001 [-j]
+    rightdocuments filings:list 0004-001 [-j]             # filings:* are kept; new work uses submissions:*
+    rightdocuments submissions DOCUMENT_ID [-j]           # where the document was sent, and what came back
+    rightdocuments submissions:add DOCUMENT_ID --to court|sos|irs|agency|party [--case CASE] [--kind complaint] \
+      --channel efsp --provider "One Legal" --submitted 2026-10-10T22:40 [--reference ENV-1] [--fees 435.00] [-j]
+    rightdocuments submissions:accept SUBMISSION_ID --copy ./stamped.pdf [--returned acceptance|filed_copy|certified_copy] \
+      [--received 2026-10-10T23:00] [--filed 2026-10-12] [--case-number CGC-26-612345 | --file-number 7654321 | --ein 12-3456789] [--dry-run] [-j]
+    rightdocuments submissions:receipt SUBMISSION_ID [--file ./receipt.pdf] [--reference ENV-1] [-j]
+    rightdocuments submissions:reject SUBMISSION_ID --reason "Missing cover sheet" [--file ./notice.pdf] [-j]
+    rightdocuments submissions:correct SUBMISSION_ID --reason "Misread the time" [--received 2026-10-13T09:00] [--withdraw] [-j]
+    rightdocuments submissions:info SUBMISSION_ID [-j]    # history and the facts it proved
     rightdocuments deliveries DOCUMENT_ID [-j]
     rightdocuments deliveries:add DOCUMENT_ID --channel mail --sent 2026-09-02 --party PARTY_ID [-j]
     rightdocuments deliveries:update DOCUMENT_ID DELIVERY_ID --status delivered --delivered 2026-09-08 [-j]

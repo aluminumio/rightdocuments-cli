@@ -174,6 +174,13 @@ module RightDocuments
       app.add CasesInfoCommand.new
       app.add FilingsAddCommand.new
       app.add FilingsListCommand.new
+      app.add SubmissionsCommand.new
+      app.add SubmissionsInfoCommand.new
+      app.add SubmissionsAddCommand.new
+      app.add SubmissionsReceiptCommand.new
+      app.add SubmissionsAcceptCommand.new
+      app.add SubmissionsRejectCommand.new
+      app.add SubmissionsCorrectCommand.new
       app.add CatalogCommand.new
       app.add SkillsCommand.new
       app.run(ACON::Input::ARGV.new(argv))
