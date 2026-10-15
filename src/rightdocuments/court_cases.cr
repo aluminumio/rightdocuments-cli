@@ -1,13 +1,17 @@
 # Court cases and court filings. The case number and filed date are facts:
-# only a filing with the court's endorsed copy sets them. There is no
-# command that sets them by hand.
+# only the court's acceptance or endorsed copy of a court submission sets
+# them (submissions:accept). filings:add and filings:list are the older
+# calls, kept: a filing is a court submission, and its id is the submission id.
+# No command sets them by hand.
 module RightDocuments
   module CourtCaseText
     def self.fact(court_case : JSON::Any, field : String) : String
       value = MatterText.s(court_case.dig?("facts", field, "value"))
       return "— (not filed yet)" if value.empty?
       source = court_case.dig?("facts", field, "source_document")
-      source ? "#{value} (from #{MatterText.s(source["name"]?)}, #{MatterText.s(source["id"]?)})" : value
+      accepted = court_case.dig?("facts", field, "source_submission", "accepted_at").try(&.as_s?)
+      accepted_text = accepted ? ", accepted #{accepted[0, 10]}" : ""
+      source ? "#{value} (from #{MatterText.s(source["name"]?)}#{accepted_text}, #{MatterText.s(source["id"]?)})" : value
     end
 
     def self.filing_line(filing : JSON::Any) : String
@@ -101,7 +105,7 @@ module RightDocuments
     end
   end
 
-  @[ACONA::AsCommand("filings:add", description: "Record a court filing; with --endorsed, set the case number and filed date")]
+  @[ACONA::AsCommand("filings:add", description: "Record a court filing (older form of submissions:add/accept); with --endorsed, set the case number and filed date")]
   class FilingsAddCommand < ACON::Command
     include JSONOption
 

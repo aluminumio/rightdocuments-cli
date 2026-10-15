@@ -19,7 +19,7 @@ module RightDocuments
       files.each do |name, file_path|
         File.open(file_path) do |file|
           builder.file(name, file, HTTP::FormData::FileMetadata.new(filename: File.basename(file_path)),
-            HTTP::Headers{"Content-Type" => "application/pdf"})
+            HTTP::Headers{"Content-Type" => content_type_for(file_path)})
         end
       end
       builder.finish
@@ -28,6 +28,16 @@ module RightDocuments
         "Content-Type"  => builder.content_type,
       }
       parse(HTTP::Client.post(URI.parse("#{BASE_URL}#{path}"), headers: headers, body: io.to_s))
+    end
+
+    CONTENT_TYPES = {
+      ".pdf" => "application/pdf", ".png" => "image/png", ".jpg" => "image/jpeg", ".jpeg" => "image/jpeg",
+      ".txt" => "text/plain", ".html" => "text/html", ".eml" => "message/rfc822",
+    }
+
+    # By the file's extension; the server checks a PDF by its first bytes.
+    def self.content_type_for(file_path : String) : String
+      CONTENT_TYPES[File.extname(file_path).downcase]? || "application/octet-stream"
     end
 
     private def self.parse(response : HTTP::Client::Response) : JSON::Any
