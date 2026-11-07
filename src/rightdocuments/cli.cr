@@ -121,10 +121,33 @@ module RightDocuments
     end
   end
 
+  # Athena exits with the exception's code, which is 0 for its own usage errors
+  # (missing or extra arguments, unknown options, unknown commands). Remember
+  # that an error was shown so the CLI can exit non-zero.
+  class Application < ACON::Application
+    getter? error_shown = false
+
+    protected def render_exception(ex : ::Exception, output : ACON::Output::Interface) : Nil
+      @error_shown = true
+      super
+    end
+
+    def exit_code(status : ACON::Command::Status) : Int32
+      error_shown? && status.success? ? ACON::Command::Status::FAILURE.value : status.value
+    end
+  end
+
   module CLI
     def self.run(argv : Array(String)) : Nil
       RightDocuments.select_profile(argv)
-      app = ACON::Application.new("rightdocuments", CLI_VERSION)
+      app = application
+      app.auto_exit = false
+      status = app.run(ACON::Input::ARGV.new(argv))
+      exit app.exit_code(status)
+    end
+
+    def self.application : Application
+      app = Application.new("rightdocuments", CLI_VERSION)
       app.definition << ACON::Input::Option.new("profile", value_mode: :required,
         description: "Named login to use, like the AWS CLI (default: $RIGHTDOCUMENTS_PROFILE or \"default\")")
       app.add ProfilesCommand.new
@@ -183,7 +206,7 @@ module RightDocuments
       app.add SubmissionsCorrectCommand.new
       app.add CatalogCommand.new
       app.add SkillsCommand.new
-      app.run(ACON::Input::ARGV.new(argv))
+      app
     end
   end
 
