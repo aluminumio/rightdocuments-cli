@@ -22,7 +22,9 @@ jobs:
 
       - name: Install Crystal (macOS)
         if: runner.os == 'macOS'
-        run: brew install crystal
+        run: |
+          brew install crystal openssl@3
+          echo "PKG_CONFIG_PATH=$(brew --prefix openssl@3)/lib/pkgconfig" >> "$GITHUB_ENV"
 
       - name: Install dependencies
         run: shards install --production
@@ -32,6 +34,13 @@ jobs:
           mkdir -p dist
           shards build --release --no-debug
           mv bin/rightdocuments dist/rightdocuments-${{ matrix.target }}
+
+      - name: Check macOS links (openssl@3, as the Homebrew formula expects)
+        if: runner.os == 'macOS'
+        run: |
+          otool -L dist/rightdocuments-${{ matrix.target }}
+          ! otool -L dist/rightdocuments-${{ matrix.target }} | grep -q "openssl@4"
+          otool -L dist/rightdocuments-${{ matrix.target }} | grep -q "openssl@3"
 
       - name: Compute SHA256
         run: |
