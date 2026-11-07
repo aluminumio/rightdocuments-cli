@@ -40,12 +40,24 @@ module RightDocuments
       CONTENT_TYPES[File.extname(file_path).downcase]? || "application/octet-stream"
     end
 
+    # An HTTP error response: the status code and the parsed JSON body, if any.
+    class Error < Exception
+      getter status : Int32
+      getter body : JSON::Any?
+
+      def initialize(message : String, @status : Int32, @body : JSON::Any?)
+        super(message)
+      end
+    end
+
     private def self.parse(response : HTTP::Client::Response) : JSON::Any
       unless response.status.success?
-        message = (JSON.parse(response.body)["message"]?.try(&.as_s?) rescue nil) || response.body
-        errors = (JSON.parse(response.body)["errors"]? rescue nil)
+        body = JSON.parse(response.body) rescue nil
+        fields = body.try(&.as_h?)
+        message = fields.try(&.["message"]?).try(&.as_s?) || response.body
+        errors = fields.try(&.["errors"]?)
         detail = errors ? " #{errors.to_json}" : ""
-        raise "HTTP #{response.status.code}: #{message}#{detail}"
+        raise Error.new("HTTP #{response.status.code}: #{message}#{detail}", response.status.code, body)
       end
       response.body.empty? ? JSON::Any.new(nil) : JSON.parse(response.body)
     end

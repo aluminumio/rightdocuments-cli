@@ -85,6 +85,9 @@ Lists every document on the entity. Without `-j` you get a tab-separated `id<TAB
 | `submissions:reject <submission>` | Record a rejection | `--reason`, `--file`, `--dry-run`, `-j` |
 | `submissions:correct <submission>` | Logged correction with a reason | `--reason`, `--received`, `--filed`, `--reference`, `--withdraw`, ..., `-j` |
 | `submissions:info <submission>` | A submission's history and the facts it proved | `-j` |
+| `playbooks` | List the litigation playbooks: key, version, review status | `-j` |
+| `workflows <matter>` | A matter's workflow runs with their next open steps, and the playbooks with their fit | `-j` |
+| `workflows:start <matter>` | Start a playbook on a matter | `--playbook`, `--playbook-version`, `--case`, `--yes`, `-j` |
 | `catalog` | Enumerate server-defined choices (entity types, states, statuses) | `-j` |
 | `skills` | Print this guide (for agents/LLMs) | — |
 
@@ -164,6 +167,20 @@ rightdocuments deadlines:done 0004-001 DEADLINE_ID
 rightdocuments deadlines:reopen 0004-001 DEADLINE_ID
 rightdocuments deadlines:remove 0004-001 DEADLINE_ID
 ```
+
+## Workflows on a matter
+
+A workflow is a litigation playbook version in use on a matter. `workflows MATTER` shows the runs (with the next open steps, the actor and the due date) and each playbook's fit: `fits`, `unknown`, `running` or `does_not_fit`, with the reasons. The fit is advice, as on the web confirm page.
+
+```sh
+rightdocuments playbooks -j
+rightdocuments workflows 0004-001 -j
+rightdocuments workflows:start 0004-001 --playbook ca-superior-unlimited-civil --case CGC-26-612345 -j
+```
+
+- When the fit is `does_not_fit` or `unknown`, `workflows:start` prints the reasons and asks. `--yes` starts without asking. With `--no-interaction` and no `--yes`, it does not start and exits 1.
+- `--playbook-version` pins a version (default: the latest). `--case` is the court case ID or case number, for a playbook that belongs to a court case when the matter has more than one.
+- The server refuses (422, with the reasons on stderr) a placeholder (stub), a closed matter, a missing court case, and a playbook that is already running. An unknown playbook or version is 404.
 
 ## Court cases and court filings
 
