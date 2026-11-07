@@ -55,6 +55,9 @@ Or download a binary from [Releases](https://github.com/aluminumio/rightdocument
     rightdocuments submissions:reject SUBMISSION_ID --reason "Missing cover sheet" [--file ./notice.pdf] [-j]
     rightdocuments submissions:correct SUBMISSION_ID --reason "Misread the time" [--received 2026-10-13T09:00] [--withdraw] [-j]
     rightdocuments submissions:info SUBMISSION_ID [-j]    # history and the facts it proved
+    rightdocuments playbooks [-j]                         # litigation playbooks: key, version, review status
+    rightdocuments workflows 0004-001 [-j]                # workflow runs with next steps, and the playbooks that fit
+    rightdocuments workflows:start 0004-001 --playbook KEY [--playbook-version V] [--case CASE] [--yes] [-j]
     rightdocuments deliveries DOCUMENT_ID [-j]
     rightdocuments deliveries:add DOCUMENT_ID --channel mail --sent 2026-09-02 --party PARTY_ID [-j]
     rightdocuments deliveries:update DOCUMENT_ID DELIVERY_ID --status delivered --delivered 2026-09-08 [-j]

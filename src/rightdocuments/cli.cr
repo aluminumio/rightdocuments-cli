@@ -204,6 +204,9 @@ module RightDocuments
       app.add SubmissionsAcceptCommand.new
       app.add SubmissionsRejectCommand.new
       app.add SubmissionsCorrectCommand.new
+      app.add PlaybooksCommand.new
+      app.add WorkflowsCommand.new
+      app.add WorkflowsStartCommand.new
       app.add CatalogCommand.new
       app.add SkillsCommand.new
       app
