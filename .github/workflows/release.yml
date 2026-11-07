@@ -23,8 +23,7 @@ jobs:
       - name: Install Crystal (macOS)
         if: runner.os == 'macOS'
         run: |
-          brew install crystal openssl@3
-          echo "PKG_CONFIG_PATH=$(brew --prefix openssl@3)/lib/pkgconfig" >> "$GITHUB_ENV"
+          brew install crystal
 
       - name: Install dependencies
         run: shards install --production
@@ -35,12 +34,13 @@ jobs:
           shards build --release --no-debug
           mv bin/rightdocuments dist/rightdocuments-${{ matrix.target }}
 
-      - name: Check macOS links (openssl@3, as the Homebrew formula expects)
+      - name: Check macOS links match the Homebrew formula dependencies
         if: runner.os == 'macOS'
         run: |
           otool -L dist/rightdocuments-${{ matrix.target }}
-          ! otool -L dist/rightdocuments-${{ matrix.target }} | grep -q "openssl@4"
-          otool -L dist/rightdocuments-${{ matrix.target }} | grep -q "openssl@3"
+          # Every Homebrew library must be a depends_on in aluminumio/homebrew-tap Formula/rightdocuments.rb.
+          extra=$(otool -L dist/rightdocuments-${{ matrix.target }} | grep -o "/opt/homebrew/opt/[^/]*" | sed "s|/opt/homebrew/opt/||" | sort -u | grep -v -x -e bdw-gc -e gmp -e openssl@4 -e pcre2 || true)
+          if [ -n "$extra" ]; then echo "Not in the formula depends_on: $extra"; exit 1; fi
 
       - name: Compute SHA256
         run: |
