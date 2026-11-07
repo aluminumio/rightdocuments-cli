@@ -10,7 +10,7 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - os: macos-14         # Apple Silicon
+          - os: macos-15         # Apple Silicon
             target: darwin-arm64
           - os: ubuntu-latest    # uses container
             target: linux-x86_64
